@@ -32,6 +32,8 @@
 
 package org.opensearch.tasks;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.NamedWriteable;
@@ -45,6 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -53,6 +56,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @opensearch.internal
  */
 public class Task {
+
+    private static final Logger logger = LogManager.getLogger(Task.class);
 
     /**
      * The request header to mark tasks with specific ids
@@ -77,9 +82,13 @@ public class Task {
 
     private final List<TaskResourceTrackingListener> resourceTrackingListeners;
 
-    // Keeps track of the number of active resource tracking threads for this task. It is initialized to 1 to track
-    // the task's own/self thread. When this value becomes 0, all threads have been marked inactive and the resource
-    // tracking can be stopped for this task.
+    private final AtomicBoolean isResourceTrackingCompleted = new AtomicBoolean(false);
+
+    /**
+     * Keeps track of the number of active resource tracking threads for this task. It is initialized to 1 to track
+     * the task's own/self thread. When this value becomes 0, all threads have been marked inactive and the resource
+     * tracking can be stopped for this task.
+     */
     private final AtomicInteger numActiveResourceTrackingThreads = new AtomicInteger(1);
 
     /**
@@ -299,6 +308,10 @@ public class Task {
      * @throws IllegalStateException matching active thread entry was found which is not expected.
      */
     public void startThreadResourceTracking(long threadId, ResourceStatsType statsType, ResourceUsageMetric... resourceUsageMetrics) {
+        if (isResourceTrackingCompleted.get()) {
+            logger.debug("startThreadResourceTracking called after resource tracking is already completed");
+        }
+
         final List<ThreadResourceInfo> threadResourceInfoList = resourceStats.computeIfAbsent(threadId, k -> new ArrayList<>());
         // active thread entry should not be present in the list
         for (ThreadResourceInfo threadResourceInfo : threadResourceInfoList) {
@@ -310,7 +323,13 @@ public class Task {
         }
         threadResourceInfoList.add(new ThreadResourceInfo(threadId, statsType, resourceUsageMetrics));
         incrementResourceTrackingThreads();
-        resourceTrackingListeners.forEach(listener -> listener.onTaskExecutionStartedOnThread(this, threadId));
+        resourceTrackingListeners.forEach(listener -> {
+            try {
+                listener.onTaskExecutionStartedOnThread(this, threadId);
+            } catch (Exception e) {
+                logger.warn("failure in listener during handling of onTaskExecutionStartedOnThread", e);
+            }
+        });
     }
 
     /**
@@ -328,7 +347,13 @@ public class Task {
                 // the active entry present in the list is updated
                 if (threadResourceInfo.getStatsType() == statsType && threadResourceInfo.isActive()) {
                     threadResourceInfo.recordResourceUsageMetrics(resourceUsageMetrics);
-                    resourceTrackingListeners.forEach(listener -> listener.onTaskResourceStatsUpdated(this));
+                    resourceTrackingListeners.forEach(listener -> {
+                        try {
+                            listener.onTaskResourceStatsUpdated(this);
+                        } catch (Exception e) {
+                            logger.warn("failure in listener during handling of onTaskResourceStatsUpdated", e);
+                        }
+                    });
                     return;
                 }
             }
@@ -352,7 +377,13 @@ public class Task {
                     threadResourceInfo.setActive(false);
                     threadResourceInfo.recordResourceUsageMetrics(resourceUsageMetrics);
                     decrementResourceTrackingThreads();
-                    resourceTrackingListeners.forEach(listener -> listener.onTaskExecutionFinishedOnThread(this, threadId));
+                    resourceTrackingListeners.forEach(listener -> {
+                        try {
+                            listener.onTaskExecutionFinishedOnThread(this, threadId);
+                        } catch (Exception e) {
+                            logger.warn("failure in listener during handling of onTaskExecutionFinishedOnThread", e);
+                        }
+                    });
                     return;
                 }
             }
@@ -424,13 +455,25 @@ public class Task {
      * Decrements the number of active resource tracking threads.
      * When this value becomes zero, the onTaskResourceTrackingCompleted method is called on all registered listeners.
      *
+     * This method is also called (exactly) once during task unregistration to mark the task's own thread as complete.
+     * Since unregister is only called after the message is processed, it implies that threads must have started execution
+     * (i.e. startThreadResourceTracking was called) before the task was unregistered. This guarantees that the number of
+     * active threads doesn't drop to zero pre-maturely.
+     *
      * @return the number of active resource tracking threads.
      */
     public int decrementResourceTrackingThreads() {
         int count = numActiveResourceTrackingThreads.decrementAndGet();
 
         if (count == 0) {
-            resourceTrackingListeners.forEach(listener -> listener.onTaskResourceTrackingCompleted(this));
+            isResourceTrackingCompleted.set(true);
+            resourceTrackingListeners.forEach(listener -> {
+                try {
+                    listener.onTaskResourceTrackingCompleted(this);
+                } catch (Exception e) {
+                    logger.warn("failure in listener during handling of onTaskResourceTrackingCompleted", e);
+                }
+            });
         }
 
         return count;

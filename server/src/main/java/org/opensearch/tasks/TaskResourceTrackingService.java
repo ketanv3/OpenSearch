@@ -165,11 +165,10 @@ public class TaskResourceTrackingService implements RunnableTaskExecutionListene
     @Override
     public void taskExecutionStartedOnThread(long taskId, long threadId) {
         try {
-            if (resourceAwareTasks.containsKey(taskId)) {
+            final Task task = resourceAwareTasks.get(taskId);
+            if (task != null) {
                 logger.debug("Task execution started on thread. Task: {}, Thread: {}", taskId, threadId);
-
-                resourceAwareTasks.get(taskId)
-                    .startThreadResourceTracking(threadId, WORKER_STATS, getResourceUsageMetricsForThread(threadId));
+                task.startThreadResourceTracking(threadId, WORKER_STATS, getResourceUsageMetricsForThread(threadId));
             }
         } catch (Exception e) {
             logger.warn(new ParameterizedMessage("Failed to mark thread execution started for task: [{}]", taskId), e);
@@ -187,10 +186,10 @@ public class TaskResourceTrackingService implements RunnableTaskExecutionListene
     @Override
     public void taskExecutionFinishedOnThread(long taskId, long threadId) {
         try {
-            if (resourceAwareTasks.containsKey(taskId)) {
+            final Task task = resourceAwareTasks.get(taskId);
+            if (task != null) {
                 logger.debug("Task execution finished on thread. Task: {}, Thread: {}", taskId, threadId);
-                resourceAwareTasks.get(taskId)
-                    .stopThreadResourceTracking(threadId, WORKER_STATS, getResourceUsageMetricsForThread(threadId));
+                task.stopThreadResourceTracking(threadId, WORKER_STATS, getResourceUsageMetricsForThread(threadId));
             }
         } catch (Exception e) {
             logger.warn(new ParameterizedMessage("Failed to mark thread execution finished for task: [{}]", taskId), e);
