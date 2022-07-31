@@ -134,6 +134,14 @@ public class TaskManager implements ClusterStateApplier {
         this.cancellationService.set(taskCancellationService);
     }
 
+    public ThreadContext.StoredContext startResourceTracking(Task task) {
+        return taskResourceTrackingService.startResourceTracking(task);
+    }
+
+    public void stopResourceTracking(Task task, ThreadContext.StoredContext storedContext) {
+        taskResourceTrackingService.stopResourceTracking(task, storedContext);
+    }
+
     /**
      * Registers a task without parent task
      */

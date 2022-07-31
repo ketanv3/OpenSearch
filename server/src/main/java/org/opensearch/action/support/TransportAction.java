@@ -40,6 +40,7 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.lease.Releasables;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskCancelledException;
 import org.opensearch.tasks.TaskId;
@@ -93,17 +94,23 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
          */
         final Releasable unregisterChildNode = registerChildNode(request.getParentTask());
         final Task task;
+
         try {
             task = taskManager.register("transport", actionName, request);
         } catch (TaskCancelledException e) {
             unregisterChildNode.close();
             throw e;
         }
+
+        final ThreadContext.StoredContext storedContext = taskManager.startResourceTracking(task);
+        final Releasable stopResourceTracking = () -> taskManager.stopResourceTracking(task, storedContext);
+        final Releasable unregisterTask = () -> taskManager.unregister(task);
+
         execute(task, request, new ActionListener<Response>() {
             @Override
             public void onResponse(Response response) {
                 try {
-                    Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
+                    Releasables.close(unregisterChildNode, stopResourceTracking, unregisterTask);
                 } finally {
                     listener.onResponse(response);
                 }
@@ -112,12 +119,13 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
             @Override
             public void onFailure(Exception e) {
                 try {
-                    Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
+                    Releasables.close(unregisterChildNode, stopResourceTracking, unregisterTask);
                 } finally {
                     listener.onFailure(e);
                 }
             }
         });
+
         return task;
     }
 
@@ -128,17 +136,23 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
     public final Task execute(Request request, TaskListener<Response> listener) {
         final Releasable unregisterChildNode = registerChildNode(request.getParentTask());
         final Task task;
+
         try {
             task = taskManager.register("transport", actionName, request);
         } catch (TaskCancelledException e) {
             unregisterChildNode.close();
             throw e;
         }
+
+        final ThreadContext.StoredContext storedContext = taskManager.startResourceTracking(task);
+        final Releasable stopResourceTracking = () -> taskManager.stopResourceTracking(task, storedContext);
+        final Releasable unregisterTask = () -> taskManager.unregister(task);
+
         execute(task, request, new ActionListener<Response>() {
             @Override
             public void onResponse(Response response) {
                 try {
-                    Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
+                    Releasables.close(unregisterChildNode, stopResourceTracking, unregisterTask);
                 } finally {
                     listener.onResponse(task, response);
                 }
@@ -147,12 +161,13 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
             @Override
             public void onFailure(Exception e) {
                 try {
-                    Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
+                    Releasables.close(unregisterChildNode, stopResourceTracking, unregisterTask);
                 } finally {
                     listener.onFailure(task, e);
                 }
             }
         });
+
         return task;
     }
 
