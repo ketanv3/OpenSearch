@@ -372,4 +372,13 @@ public class Task {
             throw new IllegalStateException("response has to implement ToXContent to be able to store the results");
         }
     }
+
+    /**
+     * Individual tasks can override this if they want to support task resource tracking.
+     * We just need to ensure that the ThreadPool on which the task runs on has {@link TaskAwareRunnable} wrapper
+     * similar to {@link org.opensearch.common.util.concurrent.OpenSearchExecutors#newResizable}.
+     */
+    public boolean supportsResourceTracking() {
+        return false;
+    }
 }

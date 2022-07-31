@@ -106,6 +106,8 @@ public class TaskManager implements ClusterStateApplier {
 
     private TaskResultsService taskResultsService;
 
+    private TaskResourceTrackingService taskResourceTrackingService;
+
     private volatile DiscoveryNodes lastDiscoveryNodes = DiscoveryNodes.EMPTY_NODES;
 
     private final ByteSizeValue maxHeaderSize;
@@ -121,6 +123,11 @@ public class TaskManager implements ClusterStateApplier {
     public void setTaskResultsService(TaskResultsService taskResultsService) {
         assert this.taskResultsService == null;
         this.taskResultsService = taskResultsService;
+    }
+
+    public void setTaskResourceTrackingService(TaskResourceTrackingService taskResourceTrackingService) {
+        assert this.taskResourceTrackingService == null;
+        this.taskResourceTrackingService = taskResourceTrackingService;
     }
 
     public void setTaskCancellationService(TaskCancellationService taskCancellationService) {
