@@ -62,6 +62,8 @@ public class Task {
      */
     public static final String X_OPAQUE_ID = "X-Opaque-Id";
 
+    public static final String TASK_ID = "TASK_ID";
+
     private static final String TOTAL = "total";
 
     private final long id;
