@@ -308,10 +308,6 @@ public class Task {
      * @throws IllegalStateException matching active thread entry was found which is not expected.
      */
     public void startThreadResourceTracking(long threadId, ResourceStatsType statsType, ResourceUsageMetric... resourceUsageMetrics) {
-        if (isResourceTrackingCompleted.get()) {
-            logger.debug("startThreadResourceTracking called after resource tracking is already completed");
-        }
-
         final List<ThreadResourceInfo> threadResourceInfoList = resourceStats.computeIfAbsent(threadId, k -> new ArrayList<>());
         // active thread entry should not be present in the list
         for (ThreadResourceInfo threadResourceInfo : threadResourceInfoList) {
@@ -384,6 +380,7 @@ public class Task {
                             logger.warn("failure in listener during handling of onTaskExecutionFinishedOnThread", e);
                         }
                     });
+
                     return;
                 }
             }
@@ -453,20 +450,23 @@ public class Task {
 
     /**
      * Decrements the number of active resource tracking threads.
-     * When this value becomes zero, the onTaskResourceTrackingCompleted method is called on all registered listeners.
+     * This method is called when threads finish execution, and also when the task is unregistered (to mark the task's
+     * own thread as complete). When the active thread count becomes zero, the onTaskResourceTrackingCompleted method
+     * is called exactly once on all registered listeners.
      *
-     * This method is also called (exactly) once during task unregistration to mark the task's own thread as complete.
-     * Since unregister is only called after the message is processed, it implies that threads must have started execution
-     * (i.e. startThreadResourceTracking was called) before the task was unregistered. This guarantees that the number of
-     * active threads doesn't drop to zero pre-maturely.
+     * Since a task is unregistered after the message is processed, it implies that the threads responsible to produce
+     * the response must have started prior to it (i.e. startThreadResourceTracking called before unregister).
+     * This ensures that the number of active threads doesn't drop to zero pre-maturely.
+     *
+     * Rarely, some threads may even start execution after the task is unregistered. As resource stats are piggy-backed
+     * with the response, any thread usage info captured after the task is unregistered may be irrelevant.
      *
      * @return the number of active resource tracking threads.
      */
     public int decrementResourceTrackingThreads() {
         int count = numActiveResourceTrackingThreads.decrementAndGet();
 
-        if (count == 0) {
-            isResourceTrackingCompleted.set(true);
+        if (count == 0 && isResourceTrackingCompleted.compareAndSet(false, true)) {
             resourceTrackingListeners.forEach(listener -> {
                 try {
                     listener.onTaskResourceTrackingCompleted(this);
