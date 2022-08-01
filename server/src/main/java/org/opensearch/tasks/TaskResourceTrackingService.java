@@ -107,7 +107,7 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
             return () -> {};
         }
 
-        logger.info("starting resource tracking for [task={}]", task.getId());
+        logger.debug("starting resource tracking for [taskId={}]", task.getId());
 
         List<Exception> listenerExceptions = new ArrayList<>();
         listeners.forEach(listener -> {
@@ -141,7 +141,7 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
             return;
         }
 
-        logger.info("stopping resource tracking for [task={}]", task.getId());
+        logger.debug("stopping resource tracking for [taskId={}]", task.getId());
         resourceAwareTasks.remove(task.getId());
 
         List<Exception> listenerExceptions = new ArrayList<>();
@@ -185,7 +185,6 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
 
     @Override
     public void onTaskResourceTrackingStopped(Task task) {
-        TaskResourceUsage tru = task.getTotalResourceStats();
-        logger.info("task={} id={} cpu={} mem={}", task.getAction(), task.getId(), tru.getCpuTimeInNanos(), tru.getMemoryInBytes());
+
     }
 }
