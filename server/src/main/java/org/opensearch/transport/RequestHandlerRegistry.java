@@ -108,7 +108,7 @@ public final class RequestHandlerRegistry<Request extends TransportRequest> {
             handler.messageReceived(request, taskTransportChannel, task);
             unregisterTask = null;
         } finally {
-            Releasables.close(stopResourceTracking, unregisterTask);
+            Releasables.close(unregisterTask, stopResourceTracking);
         }
     }
 

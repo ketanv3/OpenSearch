@@ -110,7 +110,7 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
             @Override
             public void onResponse(Response response) {
                 try {
-                    Releasables.close(unregisterChildNode, stopResourceTracking, unregisterTask);
+                    Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
                 } finally {
                     listener.onResponse(response);
                 }
@@ -119,7 +119,7 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
             @Override
             public void onFailure(Exception e) {
                 try {
-                    Releasables.close(unregisterChildNode, stopResourceTracking, unregisterTask);
+                    Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
                 } finally {
                     listener.onFailure(e);
                 }
@@ -152,7 +152,7 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
             @Override
             public void onResponse(Response response) {
                 try {
-                    Releasables.close(unregisterChildNode, stopResourceTracking, unregisterTask);
+                    Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
                 } finally {
                     listener.onResponse(task, response);
                 }
@@ -161,7 +161,7 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
             @Override
             public void onFailure(Exception e) {
                 try {
-                    Releasables.close(unregisterChildNode, stopResourceTracking, unregisterTask);
+                    Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
                 } finally {
                     listener.onFailure(task, e);
                 }

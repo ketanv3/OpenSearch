@@ -84,6 +84,12 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
         };
     }
 
+    private static boolean isCurrentThreadActiveForTask(Task task) {
+        return task.getResourceStats().getOrDefault(Thread.currentThread().getId(), Collections.emptyList())
+            .stream()
+            .anyMatch(ThreadResourceInfo::isActive);
+    }
+
     /**
      * Starts resource tracking for the given task.
      * This adds the taskId to the threadContext which is preserved across other forked threads.
@@ -103,7 +109,7 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
             return () -> {};
         }
 
-        logger.debug("starting resource tracking for [task={}]", task.getId());
+        logger.info("starting resource tracking for [task={}]", task.getId());
 
         // Add taskId to the threadContext, and give us a way to restore it later.
         ThreadContext threadContext = threadPool.getThreadContext();
@@ -120,8 +126,16 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
      * Stops resource tracking for the given task.
      */
     public void stopResourceTracking(Task task, ThreadContext.StoredContext storedContext) {
-        logger.debug("stopping resource tracking for [task={}]", task.getId());
-        // TODO: why do we need to stop resource tracking for current thread?
+        if (task.supportsResourceTracking() == false) {
+            return;
+        }
+
+        logger.info("stopping resource tracking for [task={}]", task.getId());
+
+        // Mark the current thread as inactive if it is still working on the task.
+        if (isCurrentThreadActiveForTask(task)) {
+            onThreadExecutionStopped(task.getId(), Thread.currentThread().getId());
+        }
 
         resourceAwareTasks.remove(task.getId());
         listeners.forEach(listener -> listener.onTaskResourceTrackingStopped(task));
@@ -135,7 +149,7 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
     public void onThreadExecutionStarted(long taskId, long threadId) {
         Task task = resourceAwareTasks.get(taskId);
         if (task == null) {
-            logger.debug("thread execution started on task that no longer exists [taskId=" + taskId + " threadId=" + threadId + "]");
+            logger.info("thread execution started on task that no longer exists [taskId=" + taskId + " threadId=" + threadId + "]");
             return;
         }
 
@@ -146,7 +160,7 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
     public void onThreadExecutionStopped(long taskId, long threadId) {
         Task task = resourceAwareTasks.get(taskId);
         if (task == null) {
-            logger.debug("thread execution stopped on task that no longer exists [taskId=" + taskId + " threadId=" + threadId + "]");
+            logger.info("thread execution stopped on task that no longer exists [taskId=" + taskId + " threadId=" + threadId + "]");
             return;
         }
 
@@ -177,6 +191,7 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
 
     @Override
     public void onTaskResourceTrackingStopped(Task task) {
-
+        TaskResourceUsage tru = task.getTotalResourceStats();
+        logger.info("task={} id={} cpu={} mem={}", task.getAction(), task.getId(), tru.getCpuTimeInNanos(), tru.getMemoryInBytes());
     }
 }

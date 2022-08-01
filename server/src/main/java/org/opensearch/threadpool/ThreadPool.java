@@ -201,6 +201,10 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         Setting.Property.NodeScope
     );
 
+    public ThreadPool(final Settings settings, final ExecutorBuilder<?>... customBuilders) {
+        this(settings, null, customBuilders);
+    }
+
     public ThreadPool(
         final Settings settings,
         final AtomicReference<TaskAwareRunnable.Listener> taskAwareRunnableListener,
