@@ -96,11 +96,7 @@ public abstract class TaskManagerTestCase extends OpenSearchTestCase {
 
     @Before
     public void setupThreadPool() {
-        threadPool = new TestThreadPool(
-            TransportTasksActionTests.class.getSimpleName(),
-            Settings.EMPTY,
-            taskAwareRunnableListeners
-        );
+        threadPool = new TestThreadPool(TransportTasksActionTests.class.getSimpleName(), Settings.EMPTY, taskAwareRunnableListeners);
     }
 
     public void setupTestNodes(Settings settings) {

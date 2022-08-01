@@ -56,7 +56,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 /**
@@ -192,8 +191,8 @@ public class OpenSearchExecutors {
         }
 
         // Wrap the runnable inside a TaskAwareRunnable if there are one or more listeners.
-        Function<Runnable, WrappedRunnable> runnableWrapper =
-            runnable -> (taskAwareRunnableListeners == null || taskAwareRunnableListeners.size() == 0)
+        Function<Runnable, WrappedRunnable> runnableWrapper = runnable -> (taskAwareRunnableListeners == null
+            || taskAwareRunnableListeners.size() == 0)
                 ? new TimedRunnable(runnable)
                 : new TimedRunnable(new TaskAwareRunnable(contextHolder, runnable, taskAwareRunnableListeners));
 

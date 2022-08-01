@@ -23,7 +23,6 @@ import org.opensearch.threadpool.ThreadPool;
 
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, TaskResourceTrackingListener {
@@ -81,8 +80,7 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
     private static ResourceUsageMetric[] getThreadResourceUsageMetrics(long threadId) {
         return new ResourceUsageMetric[] {
             new ResourceUsageMetric(ResourceStats.CPU, threadMXBean.getThreadCpuTime(threadId)),
-            new ResourceUsageMetric(ResourceStats.MEMORY, threadMXBean.getThreadAllocatedBytes(threadId))
-        };
+            new ResourceUsageMetric(ResourceStats.MEMORY, threadMXBean.getThreadAllocatedBytes(threadId)) };
     }
 
     /**
@@ -95,7 +93,9 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
      *  - onThreadExecutionStopped(Task task, long threadId)
      */
     public ThreadContext.StoredContext startResourceTracking(Task task) {
-        if (task.supportsResourceTracking() == false || isTaskResourceTrackingEnabled() == false || isTaskResourceTrackingSupported() == false) {
+        if (task.supportsResourceTracking() == false
+            || isTaskResourceTrackingEnabled() == false
+            || isTaskResourceTrackingSupported() == false) {
             return () -> {};
         }
 

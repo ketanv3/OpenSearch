@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A builder for resizable executors.
@@ -40,7 +39,7 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
         final int size,
         final int queueSize,
         final List<TaskAwareRunnable.Listener> taskAwareRunnableListeners
-        ) {
+    ) {
         this(settings, name, size, queueSize, "thread_pool." + name, taskAwareRunnableListeners);
     }
 
