@@ -12,6 +12,7 @@ import com.sun.management.ThreadMXBean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ExceptionsHelper;
+import org.opensearch.common.SuppressForbidden;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
@@ -25,6 +26,7 @@ import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
 
+@SuppressForbidden(reason = "ThreadMXBean#getThreadAllocatedBytes")
 public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, TaskResourceTrackingListener {
     private static final Logger logger = LogManager.getLogger(TaskResourceTrackingService.class);
 
