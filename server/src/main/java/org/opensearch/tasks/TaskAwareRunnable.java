@@ -15,7 +15,6 @@ import org.opensearch.common.util.concurrent.WrappedRunnable;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Wraps another runnable to provide updates on thread start/stop when working on a task.
@@ -23,9 +22,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnable {
     private final ThreadContext threadContext;
     private final Runnable original;
-    private final List<AtomicReference<Listener>> listeners;
+    private final List<Listener> listeners;
 
-    public TaskAwareRunnable(ThreadContext threadContext, Runnable original, List<AtomicReference<Listener>> listeners) {
+    public TaskAwareRunnable(ThreadContext threadContext, Runnable original, List<Listener> listeners) {
         this.threadContext = threadContext;
         this.original = original;
         this.listeners = listeners;
@@ -55,24 +54,18 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
         Task task = threadContext.getTransient(Task.TASK_REF);
         Objects.requireNonNull(task, "task must be present in the threadContext");
 
-        listeners.forEach(ref -> {
+        listeners.forEach(listener -> {
             try {
-                Listener listener = ref.get();
-                if (listener != null) {
-                    listener.onThreadExecutionStarted(task, Thread.currentThread().getId());
-                }
+                listener.onThreadExecutionStarted(task, Thread.currentThread().getId());
             } catch (Exception ignored) {}
         });
 
         try {
             original.run();
         } finally {
-            listeners.forEach(ref -> {
+            listeners.forEach(listener -> {
                 try {
-                    Listener listener = ref.get();
-                    if (listener != null) {
-                        listener.onThreadExecutionStopped(task, Thread.currentThread().getId());
-                    }
+                    listener.onThreadExecutionStopped(task, Thread.currentThread().getId());
                 } catch (Exception ignored) {}
             });
         }

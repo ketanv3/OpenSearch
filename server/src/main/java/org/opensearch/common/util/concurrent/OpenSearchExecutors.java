@@ -185,15 +185,15 @@ public class OpenSearchExecutors {
         int queueCapacity,
         ThreadFactory threadFactory,
         ThreadContext contextHolder,
-        AtomicReference<TaskAwareRunnable.Listener> taskAwareRunnableListener
+        List<TaskAwareRunnable.Listener> taskAwareRunnableListeners
     ) {
         if (queueCapacity <= 0) {
             throw new IllegalArgumentException("queue capacity for [" + name + "] executor must be positive, got: " + queueCapacity);
         }
 
-        Function<Runnable, WrappedRunnable> runnableWrapper = taskAwareRunnableListener == null
+        Function<Runnable, WrappedRunnable> runnableWrapper = taskAwareRunnableListeners == null
             ? TimedRunnable::new
-            : runnable -> new TimedRunnable(new TaskAwareRunnable(contextHolder, runnable, List.of(taskAwareRunnableListener)));
+            : runnable -> new TimedRunnable(new TaskAwareRunnable(contextHolder, runnable, taskAwareRunnableListeners));
 
         return new QueueResizableOpenSearchThreadPoolExecutor(
             name,

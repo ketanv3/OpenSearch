@@ -32,16 +32,16 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
 
     private final Setting<Integer> sizeSetting;
     private final Setting<Integer> queueSizeSetting;
-    private final AtomicReference<TaskAwareRunnable.Listener> taskAwareRunnableListener;
+    private final List<TaskAwareRunnable.Listener> taskAwareRunnableListeners;
 
     ResizableExecutorBuilder(
         final Settings settings,
         final String name,
         final int size,
         final int queueSize,
-        final AtomicReference<TaskAwareRunnable.Listener> taskAwareRunnableListener
+        final List<TaskAwareRunnable.Listener> taskAwareRunnableListeners
         ) {
-        this(settings, name, size, queueSize, "thread_pool." + name, taskAwareRunnableListener);
+        this(settings, name, size, queueSize, "thread_pool." + name, taskAwareRunnableListeners);
     }
 
     public ResizableExecutorBuilder(
@@ -50,7 +50,7 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
         final int size,
         final int queueSize,
         final String prefix,
-        final AtomicReference<TaskAwareRunnable.Listener> taskAwareRunnableListener
+        final List<TaskAwareRunnable.Listener> taskAwareRunnableListeners
     ) {
         super(name);
         final String sizeKey = settingsKey(prefix, "size");
@@ -66,7 +66,7 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
             queueSize,
             new Setting.Property[] { Setting.Property.NodeScope, Setting.Property.Dynamic }
         );
-        this.taskAwareRunnableListener = taskAwareRunnableListener;
+        this.taskAwareRunnableListeners = taskAwareRunnableListeners;
     }
 
     @Override
@@ -95,7 +95,7 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
             queueSize,
             threadFactory,
             threadContext,
-            taskAwareRunnableListener
+            taskAwareRunnableListeners
         );
         final ThreadPool.Info info = new ThreadPool.Info(
             name(),
