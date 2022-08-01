@@ -8,8 +8,6 @@
 
 package org.opensearch.tasks;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.common.util.concurrent.AbstractRunnable;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -23,8 +21,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * Wraps another runnable to provide updates on thread start/stop when working on a task.
  */
 public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnable {
-    private static final Logger logger = LogManager.getLogger(TaskAwareRunnable.class);
-
     private final ThreadContext threadContext;
     private final Runnable original;
     private final List<AtomicReference<Listener>> listeners;
@@ -61,7 +57,6 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
 
     @Override
     protected void doRun() throws Exception {
-        long threadId = Thread.currentThread().getId();
         Task task = threadContext.getTransient(Task.TASK_REF);
 
         if (task != null) {
@@ -69,12 +64,10 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
                 try {
                     Listener listener = ref.get();
                     if (listener != null) {
-                        listener.onThreadExecutionStarted(task, threadId);
+                        listener.onThreadExecutionStarted(task, Thread.currentThread().getId());
                     }
                 } catch (Exception ignored) {}
             });
-        } else {
-            logger.info("task missing in threadContext when thread execution started [threadId=" + threadId + "]");
         }
 
         original.run();
@@ -82,7 +75,6 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
 
     @Override
     public void onAfter() {
-        long threadId = Thread.currentThread().getId();
         Task task = threadContext.getTransient(Task.TASK_REF);
 
         if (task != null) {
@@ -90,12 +82,10 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
                 try {
                     Listener listener = ref.get();
                     if (listener != null) {
-                        listener.onThreadExecutionStopped(task, threadId);
+                        listener.onThreadExecutionStopped(task, Thread.currentThread().getId());
                     }
                 } catch (Exception ignored) {}
             });
-        } else {
-            logger.info("task missing in threadContext when thread execution stopped [threadId=" + threadId + "]");
         }
     }
 
