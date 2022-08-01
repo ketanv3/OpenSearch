@@ -8,6 +8,8 @@
 
 package org.opensearch.tasks;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.common.util.concurrent.AbstractRunnable;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -20,6 +22,8 @@ import java.util.List;
  * Wraps another runnable to provide updates on thread start/stop when working on a task.
  */
 public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnable {
+    private static final Logger logger = LogManager.getLogger(TaskAwareRunnable.class);
+
     private final ThreadContext threadContext;
     private final Runnable original;
     private final List<Listener> listeners;
@@ -53,10 +57,11 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
     protected void doRun() throws Exception {
         long threadId = Thread.currentThread().getId();
         Task task = threadContext.getTransient(Task.TASK_REF);
-        // TODO: enable this once test failure is resolved in CreatePitMultiNodeTests.
-        // Objects.requireNonNull(task, "task not found in threadContext [threadId=" + threadId + "]");
 
+        // If the task doesn't exist in the threadContext, execute the runnable as a regular AbstractRunnable
+        // without sending updates to the listeners.
         if (task == null) {
+            logger.debug("task not found in threadContext [threadId={}], skipping updates", threadId);
             original.run();
             return;
         }
@@ -90,6 +95,9 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
         return original;
     }
 
+    /**
+     * Listener for events related to thread execution for a task.
+     */
     public interface Listener {
         /**
          * Invoked when thread execution starts for a task.

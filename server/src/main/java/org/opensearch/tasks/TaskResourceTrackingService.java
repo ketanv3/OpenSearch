@@ -26,6 +26,9 @@ import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Service to track the resource usage of a task and its threads.
+ */
 @SuppressForbidden(reason = "ThreadMXBean#getThreadAllocatedBytes")
 public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, TaskResourceTrackingListener {
     private static final Logger logger = LogManager.getLogger(TaskResourceTrackingService.class);
