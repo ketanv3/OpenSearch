@@ -14,12 +14,14 @@ import org.opensearch.common.unit.SizeValue;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.node.Node;
+import org.opensearch.tasks.TaskAwareRunnable;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A builder for resizable executors.
@@ -30,12 +32,26 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
 
     private final Setting<Integer> sizeSetting;
     private final Setting<Integer> queueSizeSetting;
+    private final AtomicReference<TaskAwareRunnable.Listener> taskAwareRunnableListener;
 
-    ResizableExecutorBuilder(final Settings settings, final String name, final int size, final int queueSize) {
-        this(settings, name, size, queueSize, "thread_pool." + name);
+    ResizableExecutorBuilder(
+        final Settings settings,
+        final String name,
+        final int size,
+        final int queueSize,
+        final AtomicReference<TaskAwareRunnable.Listener> taskAwareRunnableListener
+        ) {
+        this(settings, name, size, queueSize, "thread_pool." + name, taskAwareRunnableListener);
     }
 
-    public ResizableExecutorBuilder(final Settings settings, final String name, final int size, final int queueSize, final String prefix) {
+    public ResizableExecutorBuilder(
+        final Settings settings,
+        final String name,
+        final int size,
+        final int queueSize,
+        final String prefix,
+        final AtomicReference<TaskAwareRunnable.Listener> taskAwareRunnableListener
+    ) {
         super(name);
         final String sizeKey = settingsKey(prefix, "size");
         this.sizeSetting = new Setting<>(
@@ -50,6 +66,7 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
             queueSize,
             new Setting.Property[] { Setting.Property.NodeScope, Setting.Property.Dynamic }
         );
+        this.taskAwareRunnableListener = taskAwareRunnableListener;
     }
 
     @Override
@@ -77,7 +94,8 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
             size,
             queueSize,
             threadFactory,
-            threadContext
+            threadContext,
+            taskAwareRunnableListener
         );
         final ThreadPool.Info info = new ThreadPool.Info(
             name(),

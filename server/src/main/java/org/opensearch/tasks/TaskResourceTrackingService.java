@@ -11,7 +11,6 @@ package org.opensearch.tasks;
 import com.sun.management.ThreadMXBean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.common.collect.MapBuilder;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
@@ -22,7 +21,9 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.lang.management.ManagementFactory;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, TaskResourceTrackingListener {
     private static final Logger logger = LogManager.getLogger(TaskResourceTrackingService.class);
@@ -41,10 +42,6 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
     private volatile boolean taskResourceTrackingEnabled;
     private final List<TaskResourceTrackingListener> listeners;
 
-    // This will store the thread's resource usage at the start of resource tracking.
-    // This is useful to calculate the relative growth in usage when the thread's runnable finishes.
-    private final ThreadLocal<Map<ResourceStats, ResourceUsageMetric>> threadResourceUsageAtStart;
-
     @Inject
     public TaskResourceTrackingService(Settings settings, ClusterSettings clusterSettings, ThreadPool threadPool) {
         this.resourceAwareTasks = ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency();
@@ -55,8 +52,6 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
 
         this.listeners = Collections.synchronizedList(new ArrayList<>());
         addTaskResourceTrackingListener(this);
-
-        this.threadResourceUsageAtStart = new ThreadLocal<>();
     }
 
     public void addTaskResourceTrackingListener(TaskResourceTrackingListener listener) {
@@ -82,37 +77,11 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
      * To calculate the resource usage of a runnable, which is more meaningful, the growth between starting and ending
      * resource usage metrics of the thread must be taken.
      */
-    private static Map<ResourceStats, ResourceUsageMetric> getThreadResourceUsageMetrics(long threadId) {
-        MapBuilder<ResourceStats, ResourceUsageMetric> builder = new MapBuilder<>();
-        builder.put(ResourceStats.MEMORY, new ResourceUsageMetric(ResourceStats.MEMORY, threadMXBean.getThreadAllocatedBytes(threadId)));
-        builder.put(ResourceStats.CPU, new ResourceUsageMetric(ResourceStats.CPU, threadMXBean.getThreadCpuTime(threadId)));
-        return builder.immutableMap();
-    }
-
-    /**
-     * Returns the growth between starting and ending resource usage metrics.
-     */
-    private static Map<ResourceStats, ResourceUsageMetric> getResourceUsageMetricsDelta(
-        Map<ResourceStats, ResourceUsageMetric> startingUsage,
-        Map<ResourceStats, ResourceUsageMetric> endingUsage
-    ) {
-        Objects.requireNonNull(startingUsage, "starting thread resource usage cannot be null");
-        Objects.requireNonNull(endingUsage, "starting thread resource usage cannot be null");
-
-        MapBuilder<ResourceStats, ResourceUsageMetric> builder = new MapBuilder<>();
-
-        for (Map.Entry<ResourceStats, ResourceUsageMetric> entry : endingUsage.entrySet()) {
-            if (startingUsage.containsKey(entry.getKey()) == false) {
-                throw new IllegalStateException("missing starting resource usage for [" + entry.getKey().toString() + "]");
-            }
-
-            long delta = entry.getValue().getValue() - startingUsage.get(entry.getKey()).getValue();
-            if (delta < 0) {
-                throw new IllegalStateException("resource usage cannot be negative [" + entry.getKey().toString() + " = " + delta + "]");
-            }
-        }
-
-        return builder.immutableMap();
+    private static ResourceUsageMetric[] getThreadResourceUsageMetrics(long threadId) {
+        return new ResourceUsageMetric[] {
+            new ResourceUsageMetric(ResourceStats.CPU, threadMXBean.getThreadCpuTime(threadId)),
+            new ResourceUsageMetric(ResourceStats.MEMORY, threadMXBean.getThreadAllocatedBytes(threadId))
+        };
     }
 
     /**
@@ -162,22 +131,6 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
         storedContext.restore();
     }
 
-    /**
-     * Updates the thread resource usage (relative to initial usage) for the given task.
-     * If reset is set to true, then the initial thread resource will be evicted from ThreadLocal.
-     */
-    private void refreshThreadResourceUsage(Task task, long threadId, boolean reset) {
-        Map<ResourceStats, ResourceUsageMetric> currentUsage = getThreadResourceUsageMetrics(threadId);
-        Map<ResourceStats, ResourceUsageMetric> initialUsage = threadResourceUsageAtStart.get();
-
-        if (reset) {
-            threadResourceUsageAtStart.remove();
-        }
-
-        Map<ResourceStats, ResourceUsageMetric> delta = getResourceUsageMetricsDelta(initialUsage, currentUsage);
-        task.updateThreadResourceStats(threadId, ResourceStatsType.WORKER_STATS, delta.values().toArray(new ResourceUsageMetric[0]));
-    }
-
     @Override
     public void onThreadExecutionStarted(long taskId, long threadId) {
         Task task = resourceAwareTasks.get(taskId);
@@ -202,15 +155,14 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
 
     @Override
     public void onThreadExecutionStarted(Task task, long threadId) {
-        assert threadId == Thread.currentThread().getId() : "threadId mentioned is not the same working on it";
-        Map<ResourceStats, ResourceUsageMetric> initialUsage = getThreadResourceUsageMetrics(threadId);
-        threadResourceUsageAtStart.set(initialUsage);
+        assert threadId == Thread.currentThread().getId() : "threadId mentioned is not the same as the one working on it";
+        task.startThreadResourceTracking(threadId, ResourceStatsType.WORKER_STATS, getThreadResourceUsageMetrics(threadId));
     }
 
     @Override
     public void onThreadExecutionStopped(Task task, long threadId) {
-        assert threadId == Thread.currentThread().getId() : "threadId mentioned is not the same working on it";
-        refreshThreadResourceUsage(task, threadId, true);
+        assert threadId == Thread.currentThread().getId() : "threadId mentioned is not the same as the one working on it";
+        task.stopThreadResourceTracking(threadId, ResourceStatsType.WORKER_STATS, getThreadResourceUsageMetrics(threadId));
     }
 
     @Override

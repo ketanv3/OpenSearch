@@ -98,4 +98,9 @@ public class SearchTask extends CancellableTask {
     public boolean shouldCancelChildrenOnCancellation() {
         return true;
     }
+
+    @Override
+    public boolean supportsResourceTracking() {
+        return true;
+    }
 }

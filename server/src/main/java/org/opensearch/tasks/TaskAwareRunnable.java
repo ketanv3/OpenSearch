@@ -8,38 +8,31 @@
 
 package org.opensearch.tasks;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.common.util.concurrent.AbstractRunnable;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.util.concurrent.WrappedRunnable;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Wraps another runnable to provide updates on thread start/stop when working on a task.
  */
 public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnable {
-    private static final Logger logger = LogManager.getLogger(TaskAwareRunnable.class);
-
     private final ThreadContext threadContext;
     private final Runnable original;
-    private final List<Listener> listeners;
+    private final List<AtomicReference<Listener>> listeners;
 
-    public TaskAwareRunnable(ThreadContext threadContext, Runnable original) {
-        this(threadContext, original, Collections.synchronizedList(new ArrayList<>()));
-    }
-
-    public TaskAwareRunnable(ThreadContext threadContext, Runnable original, List<Listener> listeners) {
+    public TaskAwareRunnable(ThreadContext threadContext, Runnable original, List<AtomicReference<Listener>> listeners) {
         this.threadContext = threadContext;
         this.original = original;
         this.listeners = listeners;
     }
 
-    public void addListener(Listener listener) {
+    public void addListener(AtomicReference<Listener> listener) {
+        Objects.requireNonNull(listener, "listener reference cannot be null");
         listeners.add(listener);
     }
 
@@ -68,9 +61,12 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
         long threadId = Thread.currentThread().getId();
 
         if (taskId != null) {
-            listeners.forEach(listener -> {
+            listeners.forEach(ref -> {
                 try {
-                    listener.onThreadExecutionStarted(taskId, threadId);
+                    Listener listener = ref.get();
+                    if (listener != null) {
+                        listener.onThreadExecutionStarted(taskId, threadId);
+                    }
                 } catch (Exception ignored) {}
             });
         }
@@ -84,9 +80,12 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
         long threadId = Thread.currentThread().getId();
 
         if (taskId != null) {
-            listeners.forEach(listener -> {
+            listeners.forEach(ref -> {
                 try {
-                    listener.onThreadExecutionStopped(taskId, threadId);
+                    Listener listener = ref.get();
+                    if (listener != null) {
+                        listener.onThreadExecutionStopped(taskId, threadId);
+                    }
                 } catch (Exception ignored) {}
             });
         }

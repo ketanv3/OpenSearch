@@ -43,6 +43,11 @@ import org.opensearch.indices.replication.SegmentReplicationSourceFactory;
 import org.opensearch.indices.replication.SegmentReplicationTargetService;
 import org.opensearch.indices.replication.SegmentReplicationSourceService;
 import org.opensearch.index.store.RemoteDirectoryFactory;
+import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskAwareRunnable;
+import org.opensearch.tasks.TaskCancellationService;
+import org.opensearch.tasks.TaskResourceTrackingService;
+import org.opensearch.tasks.TaskResultsService;
 import org.opensearch.watcher.ResourceWatcherService;
 import org.opensearch.Assertions;
 import org.opensearch.Build;
@@ -186,9 +191,6 @@ import org.opensearch.snapshots.RestoreService;
 import org.opensearch.snapshots.SnapshotShardsService;
 import org.opensearch.snapshots.SnapshotsInfoService;
 import org.opensearch.snapshots.SnapshotsService;
-import org.opensearch.tasks.Task;
-import org.opensearch.tasks.TaskCancellationService;
-import org.opensearch.tasks.TaskResultsService;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.RemoteClusterService;
@@ -219,6 +221,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -338,6 +341,7 @@ public class Node implements Closeable {
     private final LocalNodeFactory localNodeFactory;
     private final NodeService nodeService;
     final NamedWriteableRegistry namedWriteableRegistry;
+    final AtomicReference<TaskAwareRunnable.Listener> taskAwareRunnableListener = new AtomicReference<>();
 
     public Node(Environment environment) {
         this(environment, Collections.emptyList(), true);
@@ -446,8 +450,7 @@ public class Node implements Closeable {
             localNodeFactory = new LocalNodeFactory(settings, nodeEnvironment.nodeId());
 
             final List<ExecutorBuilder<?>> executorBuilders = pluginsService.getExecutorBuilders(settings);
-
-            final ThreadPool threadPool = new ThreadPool(settings, executorBuilders.toArray(new ExecutorBuilder[0]));
+            final ThreadPool threadPool = new ThreadPool(settings, taskAwareRunnableListener, executorBuilders.toArray(new ExecutorBuilder[0]));
             resourcesToClose.add(() -> ThreadPool.terminate(threadPool, 10, TimeUnit.SECONDS));
             final ResourceWatcherService resourceWatcherService = new ResourceWatcherService(settings, threadPool);
             resourcesToClose.add(resourceWatcherService);
@@ -1095,6 +1098,9 @@ public class Node implements Closeable {
         TransportService transportService = injector.getInstance(TransportService.class);
         transportService.getTaskManager().setTaskResultsService(injector.getInstance(TaskResultsService.class));
         transportService.getTaskManager().setTaskCancellationService(new TaskCancellationService(transportService));
+        TaskResourceTrackingService taskResourceTrackingService = injector.getInstance(TaskResourceTrackingService.class);
+        transportService.getTaskManager().setTaskResourceTrackingService(taskResourceTrackingService);
+        taskAwareRunnableListener.set(taskResourceTrackingService);
         transportService.start();
         assert localNodeFactory.getNode() != null;
         assert transportService.getLocalNode().equals(localNodeFactory.getNode())
