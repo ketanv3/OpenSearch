@@ -13,16 +13,6 @@ package org.opensearch.tasks;
  */
 public interface TaskResourceTrackingListener {
     /**
-     * Invoked when thread execution starts for a task.
-     */
-    void onThreadExecutionStarted(Task task, long threadId);
-
-    /**
-     * Invoked when thread execution stops for a task.
-     */
-    void onThreadExecutionStopped(Task task, long threadId);
-
-    /**
      * Invoked when task resource tracking is started.
      */
     void onTaskResourceTrackingStarted(Task task);

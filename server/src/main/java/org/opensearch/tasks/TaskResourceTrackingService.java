@@ -113,8 +113,8 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
 
         // Add taskId to the threadContext, and give us a way to restore it later.
         ThreadContext threadContext = threadPool.getThreadContext();
-        ThreadContext.StoredContext storedContext = threadContext.newStoredContext(true, List.of(Task.TASK_ID));
-        threadContext.putTransient(Task.TASK_ID, task.getId());
+        ThreadContext.StoredContext storedContext = threadContext.newStoredContext(true, List.of(Task.TASK_REF));
+        threadContext.putTransient(Task.TASK_REF, task);
 
         resourceAwareTasks.put(task.getId(), task);
         listeners.forEach(listener -> listener.onTaskResourceTrackingStarted(task));
@@ -134,7 +134,7 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
 
         // Mark the current thread as inactive if it is still working on the task.
         if (isCurrentThreadActiveForTask(task)) {
-            onThreadExecutionStopped(task.getId(), Thread.currentThread().getId());
+            onThreadExecutionStopped(task, Thread.currentThread().getId());
         }
 
         resourceAwareTasks.remove(task.getId());
@@ -143,28 +143,6 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
         // Must be restored at the end so that the taskId is not removed pre-maturely, which may lead to
         // accounting errors or race-conditions.
         storedContext.restore();
-    }
-
-    @Override
-    public void onThreadExecutionStarted(long taskId, long threadId) {
-        Task task = resourceAwareTasks.get(taskId);
-        if (task == null) {
-            logger.info("thread execution started on task that no longer exists [taskId=" + taskId + " threadId=" + threadId + "]");
-            return;
-        }
-
-        listeners.forEach(listener -> listener.onThreadExecutionStarted(task, threadId));
-    }
-
-    @Override
-    public void onThreadExecutionStopped(long taskId, long threadId) {
-        Task task = resourceAwareTasks.get(taskId);
-        if (task == null) {
-            logger.info("thread execution stopped on task that no longer exists [taskId=" + taskId + " threadId=" + threadId + "]");
-            return;
-        }
-
-        listeners.forEach(listener -> listener.onThreadExecutionStopped(task, threadId));
     }
 
     @Override

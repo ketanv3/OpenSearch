@@ -145,9 +145,9 @@ public final class ThreadContext implements Writeable {
             );
         }
 
-        // taskId should be preserved in a threadContext in order to propagate this across threads.
-        if (context.transientHeaders.containsKey(Task.TASK_ID)) {
-            threadContextStruct = threadContextStruct.putTransient(Task.TASK_ID, context.transientHeaders.get(Task.TASK_ID));
+        // task should be preserved in a threadContext in order to propagate it across other forked threads.
+        if (context.transientHeaders.containsKey(Task.TASK_REF)) {
+            threadContextStruct = threadContextStruct.putTransient(Task.TASK_REF, context.transientHeaders.get(Task.TASK_REF));
         }
 
         threadLocal.set(threadContextStruct);
