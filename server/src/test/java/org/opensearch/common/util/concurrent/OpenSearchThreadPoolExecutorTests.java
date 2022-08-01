@@ -33,14 +33,17 @@
 package org.opensearch.common.util.concurrent;
 
 import org.opensearch.common.settings.Settings;
+import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.threadpool.ThreadPool;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasToString;
+import static org.mockito.Mockito.mock;
 
 public class OpenSearchThreadPoolExecutorTests extends OpenSearchSingleNodeTestCase {
 
@@ -64,8 +67,14 @@ public class OpenSearchThreadPoolExecutorTests extends OpenSearchSingleNodeTestC
 
     private void runThreadPoolExecutorTest(final int fill, final String executor) {
         final CountDownLatch latch = new CountDownLatch(1);
+        final ThreadPool threadPool = node().injector().getInstance(ThreadPool.class);
+
+        ThreadContext threadContext = threadPool.getThreadContext();
+        ThreadContext.StoredContext storedContext = threadContext.newStoredContext(true, List.of(Task.TASK_REF));
+        threadContext.putTransient(Task.TASK_REF, mock(Task.class));
+
         for (int i = 0; i < fill; i++) {
-            node().injector().getInstance(ThreadPool.class).executor(executor).execute(() -> {
+            threadPool.executor(executor).execute(() -> {
                 try {
                     latch.await();
                 } catch (final InterruptedException e) {
@@ -75,7 +84,7 @@ public class OpenSearchThreadPoolExecutorTests extends OpenSearchSingleNodeTestC
         }
 
         final AtomicBoolean rejected = new AtomicBoolean();
-        node().injector().getInstance(ThreadPool.class).executor(executor).execute(new AbstractRunnable() {
+        threadPool.executor(executor).execute(new AbstractRunnable() {
             @Override
             public void onFailure(final Exception e) {
 
@@ -94,6 +103,7 @@ public class OpenSearchThreadPoolExecutorTests extends OpenSearchSingleNodeTestC
         });
 
         latch.countDown();
+        storedContext.restore();
         assertTrue(rejected.get());
     }
 

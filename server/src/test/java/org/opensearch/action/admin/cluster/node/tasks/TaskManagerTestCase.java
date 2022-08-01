@@ -57,8 +57,10 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.BoundTransportAddress;
 import org.opensearch.common.util.PageCacheRecycler;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.tasks.TaskAwareRunnable;
 import org.opensearch.tasks.TaskCancellationService;
 import org.opensearch.tasks.TaskManager;
+import org.opensearch.tasks.TaskResourceTrackingService;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.tasks.MockTaskManager;
 import org.opensearch.threadpool.TestThreadPool;
@@ -69,6 +71,7 @@ import org.junit.After;
 import org.junit.Before;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -89,10 +92,15 @@ public abstract class TaskManagerTestCase extends OpenSearchTestCase {
     protected ThreadPool threadPool;
     protected TestNode[] testNodes;
     protected int nodesCount;
+    protected List<TaskAwareRunnable.Listener> taskAwareRunnableListeners = new ArrayList<>();
 
     @Before
     public void setupThreadPool() {
-        threadPool = new TestThreadPool(TransportTasksActionTests.class.getSimpleName());
+        threadPool = new TestThreadPool(
+            TransportTasksActionTests.class.getSimpleName(),
+            Settings.EMPTY,
+            taskAwareRunnableListeners
+        );
     }
 
     public void setupTestNodes(Settings settings) {
@@ -225,6 +233,7 @@ public abstract class TaskManagerTestCase extends OpenSearchTestCase {
             transportService.start();
             clusterService = createClusterService(threadPool, discoveryNode.get());
             clusterService.addStateApplier(transportService.getTaskManager());
+            taskResourceTrackingService = new TaskResourceTrackingService(settings, clusterService.getClusterSettings(), threadPool);
             ActionFilters actionFilters = new ActionFilters(emptySet());
             transportListTasksAction = new TransportListTasksAction(clusterService, transportService, actionFilters);
             transportCancelTasksAction = new TransportCancelTasksAction(clusterService, transportService, actionFilters);
@@ -236,6 +245,7 @@ public abstract class TaskManagerTestCase extends OpenSearchTestCase {
         private final SetOnce<DiscoveryNode> discoveryNode = new SetOnce<>();
         public final TransportListTasksAction transportListTasksAction;
         public final TransportCancelTasksAction transportCancelTasksAction;
+        public final TaskResourceTrackingService taskResourceTrackingService;
 
         @Override
         public void close() {

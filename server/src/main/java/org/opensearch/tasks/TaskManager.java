@@ -135,10 +135,16 @@ public class TaskManager implements ClusterStateApplier {
     }
 
     public ThreadContext.StoredContext startResourceTracking(Task task) {
+        if (taskResourceTrackingService == null) {
+            return () -> {};
+        }
         return taskResourceTrackingService.startResourceTracking(task);
     }
 
     public void stopResourceTracking(Task task, ThreadContext.StoredContext storedContext) {
+        if (taskResourceTrackingService == null) {
+            return;
+        }
         taskResourceTrackingService.stopResourceTracking(task, storedContext);
     }
 

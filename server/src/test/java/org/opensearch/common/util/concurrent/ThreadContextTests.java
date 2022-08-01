@@ -34,6 +34,7 @@ package org.opensearch.common.util.concurrent;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.logging.HeaderWarning;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
@@ -48,6 +49,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.mockito.Mockito.mock;
 
 public class ThreadContextTests extends OpenSearchTestCase {
 
@@ -152,6 +154,16 @@ public class ThreadContextTests extends OpenSearchTestCase {
         assertEquals(2, threadContext.getResponseHeaders().get("foo").size());
         assertEquals("bar", threadContext.getResponseHeaders().get("baz").get(0));
         assertEquals(1, threadContext.getResponseHeaders().get("baz").size());
+    }
+
+    public void testStashContextWithPreservedTransients() {
+        Task mockTask = mock(Task.class);
+        ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
+        threadContext.putTransient("foo", "bar");
+        threadContext.putTransient(Task.TASK_REF, mockTask);
+        threadContext.stashContext();
+        assertNull(threadContext.getTransient("foo"));
+        assertEquals(mockTask, threadContext.getTransient(Task.TASK_REF));
     }
 
     public void testStashWithOrigin() {

@@ -35,7 +35,9 @@ package org.opensearch.threadpool;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.node.Node;
+import org.opensearch.tasks.TaskAwareRunnable;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -52,7 +54,20 @@ public class TestThreadPool extends ThreadPool {
     }
 
     public TestThreadPool(String name, Settings settings, ExecutorBuilder<?>... customBuilders) {
-        super(Settings.builder().put(Node.NODE_NAME_SETTING.getKey(), name).put(settings).build(), customBuilders);
+        this(name, settings, null, customBuilders);
+    }
+
+    public TestThreadPool(
+        String name,
+        Settings settings,
+        List<TaskAwareRunnable.Listener> taskAwareRunnableListeners,
+        ExecutorBuilder<?>... customBuilders
+    ) {
+        super(
+            Settings.builder().put(Node.NODE_NAME_SETTING.getKey(), name).put(settings).build(),
+            taskAwareRunnableListeners,
+            customBuilders
+        );
     }
 
     @Override
