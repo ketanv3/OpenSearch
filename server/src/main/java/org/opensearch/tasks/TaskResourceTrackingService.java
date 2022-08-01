@@ -96,6 +96,9 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
      * is invoked with the task and threadId. The instantaneous thread resource usage is captured and save to the task.
      *  - onThreadExecutionStarted(Task task, long threadId)
      *  - onThreadExecutionStopped(Task task, long threadId)
+     *
+     * If any failure occurs during the invocation of callback listeners, the resourceAwareTasks and threadContext
+     * must remain unchanged.
      */
     public ThreadContext.StoredContext startResourceTracking(Task task) {
         if (task.supportsResourceTracking() == false
@@ -105,13 +108,6 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
         }
 
         logger.info("starting resource tracking for [task={}]", task.getId());
-
-        // Add taskId to the threadContext, and give us a way to restore it later.
-        ThreadContext threadContext = threadPool.getThreadContext();
-        ThreadContext.StoredContext storedContext = threadContext.newStoredContext(true, List.of(Task.TASK_REF));
-        threadContext.putTransient(Task.TASK_REF, task);
-
-        resourceAwareTasks.put(task.getId(), task);
 
         List<Exception> listenerExceptions = new ArrayList<>();
         listeners.forEach(listener -> {
@@ -123,6 +119,12 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
         });
         ExceptionsHelper.maybeThrowRuntimeAndSuppress(listenerExceptions);
 
+        resourceAwareTasks.put(task.getId(), task);
+
+        // Add taskId to the threadContext, and give us a way to restore it later.
+        ThreadContext threadContext = threadPool.getThreadContext();
+        ThreadContext.StoredContext storedContext = threadContext.newStoredContext(true, List.of(Task.TASK_REF));
+        threadContext.putTransient(Task.TASK_REF, task);
         return storedContext;
     }
 
@@ -130,6 +132,9 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
      * Stops resource tracking for the given task.
      * This is called when tasks have completed and are ready to be unregistered. At the end, it restores the
      * threadContext to its original state before the resource tracking was started.
+     *
+     * If any failure occurs during the invocation of callback listeners, the resourceAwareTasks and threadContext
+     * must still be restored to their original state before task resource tracking was started.
      */
     public void stopResourceTracking(Task task, ThreadContext.StoredContext storedContext) {
         if (task.supportsResourceTracking() == false) {
@@ -137,7 +142,6 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
         }
 
         logger.info("stopping resource tracking for [task={}]", task.getId());
-
         resourceAwareTasks.remove(task.getId());
 
         List<Exception> listenerExceptions = new ArrayList<>();
@@ -148,11 +152,13 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
                 listenerExceptions.add(e);
             }
         });
-        ExceptionsHelper.maybeThrowRuntimeAndSuppress(listenerExceptions);
 
         // Must be restored at the end so that the taskId is not removed pre-maturely, which may lead to
         // accounting errors or race-conditions.
         storedContext.restore();
+
+        // Throw exceptions, if any.
+        ExceptionsHelper.maybeThrowRuntimeAndSuppress(listenerExceptions);
     }
 
     @Override

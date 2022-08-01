@@ -266,7 +266,11 @@ public class Task {
     public long getTotalResourceUtilization(ResourceStats stats) {
         long totalResourceConsumption = 0L;
         for (List<ThreadResourceInfo> threadResourceInfosList : resourceStats.values()) {
-            for (ThreadResourceInfo threadResourceInfo : threadResourceInfosList) {
+            // Iterating the loop in reverse to avoid ConcurrentModificationException if a new item is added while
+            // iterating over the list. Using CopyOnWriteArrayList works but will degrade write performance considerably.
+            // This works on the assumption that items are only inserted at the end of the list, and no modifications are made.
+            for (int i = threadResourceInfosList.size() - 1; i >= 0; i--) {
+                final ThreadResourceInfo threadResourceInfo = threadResourceInfosList.get(i);
                 final ResourceUsageInfo.ResourceStatsInfo statsInfo = threadResourceInfo.getResourceUsageInfo().getStatsInfo().get(stats);
                 if (threadResourceInfo.getStatsType().isOnlyForAnalysis() == false && statsInfo != null) {
                     totalResourceConsumption += statsInfo.getTotalValue();
