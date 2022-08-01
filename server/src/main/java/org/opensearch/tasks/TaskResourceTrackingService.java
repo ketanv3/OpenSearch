@@ -11,6 +11,7 @@ package org.opensearch.tasks;
 import com.sun.management.ThreadMXBean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.ExceptionsHelper;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
@@ -50,7 +51,7 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
         this.taskResourceTrackingEnabled = TASK_RESOURCE_TRACKING_ENABLED.get(settings);
         clusterSettings.addSettingsUpdateConsumer(TASK_RESOURCE_TRACKING_ENABLED, this::setTaskResourceTrackingEnabled);
 
-        this.listeners = Collections.synchronizedList(new ArrayList<>());
+        this.listeners = new ArrayList<>();
         addTaskResourceTrackingListener(this);
     }
 
@@ -85,15 +86,6 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
     }
 
     /**
-     * Returns true if the current thread is still marked active in the resource stats of the given task.
-     */
-    private static boolean isCurrentThreadActiveForTask(Task task) {
-        return task.getResourceStats().getOrDefault(Thread.currentThread().getId(), Collections.emptyList())
-            .stream()
-            .anyMatch(ThreadResourceInfo::isActive);
-    }
-
-    /**
      * Starts resource tracking for the given task.
      * This adds the task to the threadContext which is preserved across other forked threads.
      *
@@ -115,7 +107,16 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
         threadContext.putTransient(Task.TASK_REF, task);
 
         resourceAwareTasks.put(task.getId(), task);
-        listeners.forEach(listener -> listener.onTaskResourceTrackingStarted(task));
+
+        List<Exception> listenerExceptions = new ArrayList<>();
+        listeners.forEach(listener -> {
+            try {
+                listener.onTaskResourceTrackingStarted(task);
+            } catch (Exception e) {
+                listenerExceptions.add(e);
+            }
+        });
+        ExceptionsHelper.maybeThrowRuntimeAndSuppress(listenerExceptions);
 
         return storedContext;
     }
@@ -132,13 +133,17 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
 
         logger.info("stopping resource tracking for [task={}]", task.getId());
 
-        // Mark the current thread as inactive if it is still working on the task.
-        if (isCurrentThreadActiveForTask(task)) {
-            onThreadExecutionStopped(task, Thread.currentThread().getId());
-        }
-
         resourceAwareTasks.remove(task.getId());
-        listeners.forEach(listener -> listener.onTaskResourceTrackingStopped(task));
+
+        List<Exception> listenerExceptions = new ArrayList<>();
+        listeners.forEach(listener -> {
+            try {
+                listener.onTaskResourceTrackingStopped(task);
+            } catch (Exception e) {
+                listenerExceptions.add(e);
+            }
+        });
+        ExceptionsHelper.maybeThrowRuntimeAndSuppress(listenerExceptions);
 
         // Must be restored at the end so that the taskId is not removed pre-maturely, which may lead to
         // accounting errors or race-conditions.

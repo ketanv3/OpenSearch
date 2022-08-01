@@ -13,6 +13,7 @@ import org.opensearch.common.util.concurrent.AbstractRunnable;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.util.concurrent.WrappedRunnable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -51,23 +52,31 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
 
     @Override
     protected void doRun() throws Exception {
+        long threadId = Thread.currentThread().getId();
         Task task = threadContext.getTransient(Task.TASK_REF);
-        Objects.requireNonNull(task, "task must be present in the threadContext");
+        Objects.requireNonNull(task, "task not found in threadContext [threadId=" + threadId + "]");
 
+        List<Exception> listenerExceptions = new ArrayList<>();
         listeners.forEach(listener -> {
             try {
-                listener.onThreadExecutionStarted(task, Thread.currentThread().getId());
-            } catch (Exception ignored) {}
+                listener.onThreadExecutionStarted(task, threadId);
+            } catch (Exception e) {
+                listenerExceptions.add(e);
+            }
         });
+        ExceptionsHelper.maybeThrowRuntimeAndSuppress(listenerExceptions);
 
         try {
             original.run();
         } finally {
             listeners.forEach(listener -> {
                 try {
-                    listener.onThreadExecutionStopped(task, Thread.currentThread().getId());
-                } catch (Exception ignored) {}
+                    listener.onThreadExecutionStopped(task, threadId);
+                } catch (Exception e) {
+                    listenerExceptions.add(e);
+                }
             });
+            ExceptionsHelper.maybeThrowRuntimeAndSuppress(listenerExceptions);
         }
     }
 
