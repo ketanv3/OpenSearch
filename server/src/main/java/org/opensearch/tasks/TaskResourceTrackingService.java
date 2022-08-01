@@ -84,6 +84,9 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
         };
     }
 
+    /**
+     * Returns true if the current thread is still marked active in the resource stats of the given task.
+     */
     private static boolean isCurrentThreadActiveForTask(Task task) {
         return task.getResourceStats().getOrDefault(Thread.currentThread().getId(), Collections.emptyList())
             .stream()
@@ -92,15 +95,10 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
 
     /**
      * Starts resource tracking for the given task.
-     * This adds the taskId to the threadContext which is preserved across other forked threads.
+     * This adds the task to the threadContext which is preserved across other forked threads.
      *
      * When threads execute a {@link TaskAwareRunnable}, the {@link TaskAwareRunnable.Listener} (implemented here)
-     * is invoked with the taskId and threadId.
-     *  - onThreadExecutionStarted(long taskId, long threadId)
-     *  - onThreadExecutionStopped(long taskId, long threadId)
-     *
-     * The Task object is obtained from the taskId, and {@link TaskResourceTrackingListener} (also implemented here)
-     * is invoked subsequently with the Task object and threadId.
+     * is invoked with the task and threadId. The instantaneous thread resource usage is captured and save to the task.
      *  - onThreadExecutionStarted(Task task, long threadId)
      *  - onThreadExecutionStopped(Task task, long threadId)
      */
@@ -124,6 +122,8 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
 
     /**
      * Stops resource tracking for the given task.
+     * This is called when tasks have completed and are ready to be unregistered. At the end, it restores the
+     * threadContext to its original state before the resource tracking was started.
      */
     public void stopResourceTracking(Task task, ThreadContext.StoredContext storedContext) {
         if (task.supportsResourceTracking() == false) {
