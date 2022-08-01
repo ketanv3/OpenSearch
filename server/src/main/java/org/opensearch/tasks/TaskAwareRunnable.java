@@ -31,11 +31,6 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
         this.listeners = listeners;
     }
 
-    public void addListener(AtomicReference<Listener> listener) {
-        Objects.requireNonNull(listener, "listener reference cannot be null");
-        listeners.add(listener);
-    }
-
     @Override
     public void onFailure(Exception e) {
         ExceptionsHelper.reThrowIfNotNull(e);
@@ -58,26 +53,20 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
     @Override
     protected void doRun() throws Exception {
         Task task = threadContext.getTransient(Task.TASK_REF);
+        Objects.requireNonNull(task, "task must be present in the threadContext");
 
-        if (task != null) {
-            listeners.forEach(ref -> {
-                try {
-                    Listener listener = ref.get();
-                    if (listener != null) {
-                        listener.onThreadExecutionStarted(task, Thread.currentThread().getId());
-                    }
-                } catch (Exception ignored) {}
-            });
-        }
+        listeners.forEach(ref -> {
+            try {
+                Listener listener = ref.get();
+                if (listener != null) {
+                    listener.onThreadExecutionStarted(task, Thread.currentThread().getId());
+                }
+            } catch (Exception ignored) {}
+        });
 
-        original.run();
-    }
-
-    @Override
-    public void onAfter() {
-        Task task = threadContext.getTransient(Task.TASK_REF);
-
-        if (task != null) {
+        try {
+            original.run();
+        } finally {
             listeners.forEach(ref -> {
                 try {
                     Listener listener = ref.get();
