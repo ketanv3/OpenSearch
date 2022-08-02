@@ -89,10 +89,10 @@ public final class RequestHandlerRegistry<Request extends TransportRequest> {
         final Task task = taskManager.register(channel.getChannelType(), action, request);
         final ThreadContext.StoredContext storedContext = taskManager.startResourceTracking(task);
 
-        Releasable stopResourceTracking = () -> taskManager.stopResourceTracking(task, storedContext);
+        Releasable stopResourceTracking = () -> taskManager.stopResourceTracking(task);
         Releasable unregisterTask = () -> taskManager.unregister(task);
 
-        try {
+        try (storedContext) {
             if (channel instanceof TcpTransportChannel && task instanceof CancellableTask) {
                 if (request instanceof ShardSearchRequest) {
                     // on receiving request, update the inbound network time to reflect time spent in transit over the network

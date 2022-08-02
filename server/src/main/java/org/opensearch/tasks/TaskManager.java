@@ -141,11 +141,11 @@ public class TaskManager implements ClusterStateApplier {
         return taskResourceTrackingService.startResourceTracking(task);
     }
 
-    public void stopResourceTracking(Task task, ThreadContext.StoredContext storedContext) {
+    public void stopResourceTracking(Task task) {
         if (taskResourceTrackingService == null) {
             return;
         }
-        taskResourceTrackingService.stopResourceTracking(task, storedContext);
+        taskResourceTrackingService.stopResourceTracking(task);
     }
 
     /**

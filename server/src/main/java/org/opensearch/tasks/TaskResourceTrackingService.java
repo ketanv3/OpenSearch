@@ -132,11 +132,8 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
      * Stops resource tracking for the given task.
      * This is called when tasks have completed and are ready to be unregistered. At the end, it restores the
      * threadContext to its original state before the resource tracking was started.
-     *
-     * If any failure occurs during the invocation of callback listeners, the resourceAwareTasks and threadContext
-     * must still be restored to their original state before task resource tracking was started.
      */
-    public void stopResourceTracking(Task task, ThreadContext.StoredContext storedContext) {
+    public void stopResourceTracking(Task task) {
         if (task.supportsResourceTracking() == false) {
             return;
         }
@@ -153,10 +150,6 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
             }
         });
 
-        // Must be restored at the end so that the taskId is not removed pre-maturely, which may lead to
-        // accounting errors or race-conditions.
-        storedContext.restore();
-
         // Throw exceptions, if any.
         ExceptionsHelper.maybeThrowRuntimeAndSuppress(listenerExceptions);
     }
@@ -165,12 +158,32 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener, 
     public void onThreadExecutionStarted(Task task, long threadId) {
         assert threadId == Thread.currentThread().getId() : "threadId mentioned is not the same as the one working on it";
         task.startThreadResourceTracking(threadId, ResourceStatsType.WORKER_STATS, getThreadResourceUsageMetrics(threadId));
+
+        List<Exception> listenerExceptions = new ArrayList<>();
+        listeners.forEach(listener -> {
+            try {
+                listener.onTaskResourceUsageUpdated(task);
+            } catch (Exception e) {
+                listenerExceptions.add(e);
+            }
+        });
+        ExceptionsHelper.maybeThrowRuntimeAndSuppress(listenerExceptions);
     }
 
     @Override
     public void onThreadExecutionStopped(Task task, long threadId) {
         assert threadId == Thread.currentThread().getId() : "threadId mentioned is not the same as the one working on it";
         task.stopThreadResourceTracking(threadId, ResourceStatsType.WORKER_STATS, getThreadResourceUsageMetrics(threadId));
+
+        List<Exception> listenerExceptions = new ArrayList<>();
+        listeners.forEach(listener -> {
+            try {
+                listener.onTaskResourceUsageUpdated(task);
+            } catch (Exception e) {
+                listenerExceptions.add(e);
+            }
+        });
+        ExceptionsHelper.maybeThrowRuntimeAndSuppress(listenerExceptions);
     }
 
     @Override

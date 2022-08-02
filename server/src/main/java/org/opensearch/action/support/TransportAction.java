@@ -103,28 +103,30 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
         }
 
         final ThreadContext.StoredContext storedContext = taskManager.startResourceTracking(task);
-        final Releasable stopResourceTracking = () -> taskManager.stopResourceTracking(task, storedContext);
+        final Releasable stopResourceTracking = () -> taskManager.stopResourceTracking(task);
         final Releasable unregisterTask = () -> taskManager.unregister(task);
 
-        execute(task, request, new ActionListener<Response>() {
-            @Override
-            public void onResponse(Response response) {
-                try {
-                    Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
-                } finally {
-                    listener.onResponse(response);
+        try (storedContext) {
+            execute(task, request, new ActionListener<Response>() {
+                @Override
+                public void onResponse(Response response) {
+                    try {
+                        Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
+                    } finally {
+                        listener.onResponse(response);
+                    }
                 }
-            }
 
-            @Override
-            public void onFailure(Exception e) {
-                try {
-                    Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
-                } finally {
-                    listener.onFailure(e);
+                @Override
+                public void onFailure(Exception e) {
+                    try {
+                        Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
+                    } finally {
+                        listener.onFailure(e);
+                    }
                 }
-            }
-        });
+            });
+        }
 
         return task;
     }
@@ -145,28 +147,30 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
         }
 
         final ThreadContext.StoredContext storedContext = taskManager.startResourceTracking(task);
-        final Releasable stopResourceTracking = () -> taskManager.stopResourceTracking(task, storedContext);
+        final Releasable stopResourceTracking = () -> taskManager.stopResourceTracking(task);
         final Releasable unregisterTask = () -> taskManager.unregister(task);
 
-        execute(task, request, new ActionListener<Response>() {
-            @Override
-            public void onResponse(Response response) {
-                try {
-                    Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
-                } finally {
-                    listener.onResponse(task, response);
+        try (storedContext) {
+            execute(task, request, new ActionListener<Response>() {
+                @Override
+                public void onResponse(Response response) {
+                    try {
+                        Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
+                    } finally {
+                        listener.onResponse(task, response);
+                    }
                 }
-            }
 
-            @Override
-            public void onFailure(Exception e) {
-                try {
-                    Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
-                } finally {
-                    listener.onFailure(task, e);
+                @Override
+                public void onFailure(Exception e) {
+                    try {
+                        Releasables.close(unregisterChildNode, unregisterTask, stopResourceTracking);
+                    } finally {
+                        listener.onFailure(task, e);
+                    }
                 }
-            }
-        });
+            });
+        }
 
         return task;
     }
