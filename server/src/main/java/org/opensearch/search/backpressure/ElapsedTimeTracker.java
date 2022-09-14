@@ -11,7 +11,7 @@ package org.opensearch.search.backpressure;
 import org.opensearch.tasks.Task;
 
 public class ElapsedTimeTracker implements ResourceUsageTracker {
-    public static final float ELAPSED_TIME_MILLIS_THRESHOLD = 30 * 1000;
+    public static final float ELAPSED_TIME_MILLIS_THRESHOLD = 1 * 1000;
 
     @Override
     public void update(Task task) {

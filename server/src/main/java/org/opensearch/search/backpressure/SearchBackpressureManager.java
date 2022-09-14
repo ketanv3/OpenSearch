@@ -13,11 +13,15 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.monitor.jvm.JvmStats;
 import org.opensearch.tasks.CancellableTask;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskResourceTrackingService;
+import org.opensearch.tasks.TaskResourceTrackingService.TaskCompletionListener;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.lang.management.ManagementFactory;
@@ -25,36 +29,92 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-public class SearchBackpressureManager implements Runnable, TaskResourceTrackingService.TaskCompletionListener {
+public class SearchBackpressureManager implements Runnable, TaskCompletionListener {
     private static final Logger logger = LogManager.getLogger(SearchBackpressureManager.class);
     private static final OperatingSystemMXBean osMXBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+    private static final TimeValue interval = TimeValue.timeValueSeconds(1);
+
+    public static final Setting<Boolean> SEARCH_BACKPRESSURE_ENABLED = Setting.boolSetting(
+        "search_backpressure.enabled",
+        true,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    public static final Setting<Boolean> SEARCH_BACKPRESSURE_ENFORCED = Setting.boolSetting(
+        "search_backpressure.enforced",
+        false,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    private volatile boolean enabled;
+    private volatile boolean enforced;
 
     private final TaskResourceTrackingService taskResourceTrackingService;
     private final List<ResourceUsageTracker> trackers;
 
     private final AtomicInteger consecutiveCpuBreaches = new AtomicInteger(0);
     private final AtomicInteger consecutiveHeapBreaches = new AtomicInteger(0);
-
-    static class Settings {
-        public static final boolean ENABLED = true;
-
-        public static final int NUM_CONSECUTIVE_BREACHES = 3;
-        public static final double CPU_USAGE_THRESHOLD = 0.9;
-        public static final double HEAP_USAGE_THRESHOLD = 70;
-
-        public static final long MIN_HEAP_USAGE_FOR_SEARCH_BACKPRESSURE = (long) (JvmStats.jvmStats().getMem().getHeapMax().getBytes() * 0.05);
-        public static final long MAX_TASK_CANCELLATION_PERCENTAGE = 10;
-    }
+    private final AtomicInteger currentIterationCompletedTasks = new AtomicInteger(0);
 
     @Inject
-    public SearchBackpressureManager(TaskResourceTrackingService taskResourceTrackingService, ThreadPool threadPool) {
+    public SearchBackpressureManager(
+        Settings settings,
+        ClusterSettings clusterSettings,
+        TaskResourceTrackingService taskResourceTrackingService,
+        ThreadPool threadPool
+    ) {
+        this.enabled = SEARCH_BACKPRESSURE_ENABLED.get(settings);
+        this.enforced = SEARCH_BACKPRESSURE_ENFORCED.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SEARCH_BACKPRESSURE_ENABLED, this::setEnabled);
+        clusterSettings.addSettingsUpdateConsumer(SEARCH_BACKPRESSURE_ENFORCED, this::setEnforced);
+
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
         this.trackers = List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker());
 
-        if (Settings.ENABLED) {
-            threadPool.scheduleWithFixedDelay(this, TimeValue.timeValueSeconds(1), ThreadPool.Names.SAME);
+        threadPool.scheduleWithFixedDelay(this, interval, ThreadPool.Names.SAME);
+    }
+
+    @Override
+    public void run() {
+        if (isEnabled() == false) {
+            return;
         }
+
+        if (isNodeInDuress() == false) {
+            return;
+        }
+
+        // We are only targeting in-flight cancellation of SearchShardTask for now.
+        List<CancellableTask> searchShardTasks = taskResourceTrackingService.getResourceAwareTasks().values().stream()
+            .filter(task -> task instanceof SearchShardTask)
+            .map(task -> (CancellableTask) task)
+            .collect(Collectors.toUnmodifiableList());
+
+        // Force-refresh usage stats of these tasks before making a cancellation decision.
+        taskResourceTrackingService.refreshResourceStats(searchShardTasks.toArray(new Task[0]));
+
+        // Skip cancellation if the increase in heap usage is not due to search requests.
+        long runningTasksHeapUsage = searchShardTasks.stream().mapToLong(task -> task.getTotalResourceStats().getMemoryInBytes()).sum();
+        if (runningTasksHeapUsage < Thresholds.SEARCH_HEAP_USAGE_THRESHOLD_BYTES) {
+            return;
+        }
+
+        // Calculate the maximum number of tasks to cancel based on the successful task completion rate.
+        int maxTasksToCancel = Math.min(
+            Thresholds.MAX_TASK_CANCELLATION_COUNT,
+            Math.max(1, (int) (currentIterationCompletedTasks.get() * Thresholds.MAX_TASK_CANCELLATION_PERCENTAGE))
+        );
+
+        for (CancellableTask task : getTasksForCancellation(searchShardTasks, maxTasksToCancel)) {
+            logger.info("cancelling task due to high resource consumption: id={} action={}", task.getId(), task.getAction());
+            task.cancel("resource consumption exceeded");
+        }
+
+        // Reset the completed task count to zero.
+        currentIterationCompletedTasks.set(0);
     }
 
     /**
@@ -65,14 +125,20 @@ public class SearchBackpressureManager implements Runnable, TaskResourceTracking
     private boolean isNodeInDuress() {
         boolean isCpuBreached = false, isHeapBreached = false;
 
-        if (osMXBean.getProcessCpuLoad() > Settings.CPU_USAGE_THRESHOLD) {
-            isCpuBreached = consecutiveCpuBreaches.incrementAndGet() >= Settings.NUM_CONSECUTIVE_BREACHES;
+        logger.info(
+            "cpu={}/{} mem={}/{}",
+            osMXBean.getProcessCpuLoad(), Thresholds.NODE_DURESS_CPU_USAGE_THRESHOLD,
+            JvmStats.jvmStats().getMem().getHeapUsedPercent() / 100., Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD
+        );
+
+        if (osMXBean.getProcessCpuLoad() > Thresholds.NODE_DURESS_CPU_USAGE_THRESHOLD) {
+            isCpuBreached = consecutiveCpuBreaches.incrementAndGet() >= Thresholds.NUM_CONSECUTIVE_BREACHES;
         } else {
             consecutiveCpuBreaches.set(0);
         }
 
-        if (JvmStats.jvmStats().getMem().getHeapUsedPercent() > Settings.HEAP_USAGE_THRESHOLD) {
-            isHeapBreached = consecutiveHeapBreaches.incrementAndGet() >= Settings.NUM_CONSECUTIVE_BREACHES;
+        if (JvmStats.jvmStats().getMem().getHeapUsedPercent() / 100. > Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD) {
+            isHeapBreached = consecutiveHeapBreaches.incrementAndGet() >= Thresholds.NUM_CONSECUTIVE_BREACHES;
         } else {
             consecutiveHeapBreaches.set(0);
         }
@@ -80,41 +146,13 @@ public class SearchBackpressureManager implements Runnable, TaskResourceTracking
         return isCpuBreached || isHeapBreached;
     }
 
-    @Override
-    public void run() {
-        if (isNodeInDuress() == false) {
-            return;
-        }
-
-        // We are only targeting in-flight cancellation of SearchShardTask for now.
-        List<Task> searchShardTasks = taskResourceTrackingService.getResourceAwareTasks().values().stream()
-            .filter(task -> task instanceof SearchShardTask)
-            .collect(Collectors.toUnmodifiableList());
-
-        // Force-refresh usage stats of these tasks before making a cancellation decision.
-        taskResourceTrackingService.refreshResourceStats(searchShardTasks.toArray(new Task[0]));
-
-        // Skip cancellation if the increase in heap usage is not due to search requests.
-        long runningTasksHeapUsage = searchShardTasks.stream().mapToLong(task -> task.getTotalResourceStats().getMemoryInBytes()).sum();
-        if (runningTasksHeapUsage < Settings.MIN_HEAP_USAGE_FOR_SEARCH_BACKPRESSURE) {
-            return;
-        }
-
-        for (CancellableTask task : getTasksForCancellation(searchShardTasks, 3)) {
-            logger.info("cancelling task due to high resource consumption: id={} action={}", task.getId(), task.getAction());
-            task.cancel("resource consumption exceeded");
-        }
-    }
-
     /**
      * Returns the list of tasks eligible for cancellation.
      * Tasks are returned in reverse sorted order of their cancellation score. Cancelling a task with higher score has
      * better chance of recovering the node from duress.
      */
-    private List<CancellableTask> getTasksForCancellation(List<Task> tasks, int maxTasksToCancel) {
+    private List<CancellableTask> getTasksForCancellation(List<CancellableTask> tasks, int maxTasksToCancel) {
         return tasks.stream()
-            .filter(task -> task instanceof CancellableTask)
-            .map(task -> (CancellableTask) task)
             .filter(task -> task.isCancelled() == false)
             .filter(task -> trackers.stream().anyMatch(tracker -> tracker.shouldCancel(task)))
             .limit(maxTasksToCancel)
@@ -127,8 +165,25 @@ public class SearchBackpressureManager implements Runnable, TaskResourceTracking
             return;
         }
 
+        currentIterationCompletedTasks.incrementAndGet();
         for (ResourceUsageTracker tracker : trackers) {
             tracker.update(task);
         }
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public boolean isEnforced() {
+        return enforced;
+    }
+
+    public void setEnforced(boolean enforced) {
+        this.enforced = enforced;
     }
 }

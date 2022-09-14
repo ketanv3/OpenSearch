@@ -16,9 +16,6 @@ import org.opensearch.tasks.Task;
 public class HeapUsageTracker implements ResourceUsageTracker {
     private static final Logger logger = LogManager.getLogger(HeapUsageTracker.class);
 
-    private static final double HEAP_USAGE_BYTES_THRESHOLD = (double) JvmStats.jvmStats().getMem().getHeapMax().getBytes() * 0.005;
-    private static final double HEAP_USAGE_VARIANCE_THRESHOLD = 2.0;
-
     private final MovingAverage movingAverage = new MovingAverage(100);
 
     @Override
@@ -29,15 +26,15 @@ public class HeapUsageTracker implements ResourceUsageTracker {
     @Override
     public boolean shouldCancel(Task task) {
         // There haven't been enough measurements.
-        if (movingAverage.getCount() == 0) {
+        if (movingAverage.isReady() == false) {
             return false;
         }
 
         double taskHeapUsage = task.getTotalResourceStats().getMemoryInBytes();
         double averageHeapUsage = movingAverage.getAverage();
-        double allowedHeapUsage = averageHeapUsage * HEAP_USAGE_VARIANCE_THRESHOLD;
+        double allowedHeapUsage = averageHeapUsage * Thresholds.SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD;
 
-        return taskHeapUsage >= HEAP_USAGE_BYTES_THRESHOLD && taskHeapUsage >= allowedHeapUsage;
+        return taskHeapUsage >= Thresholds.SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES && taskHeapUsage >= allowedHeapUsage;
     }
 
     private static final class MovingAverage {
@@ -73,6 +70,10 @@ public class HeapUsageTracker implements ResourceUsageTracker {
 
         public long getCount() {
             return count;
+        }
+
+        public boolean isReady() {
+            return count >= windowSize;
         }
     }
 }
