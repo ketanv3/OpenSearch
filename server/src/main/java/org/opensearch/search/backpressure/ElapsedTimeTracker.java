@@ -19,7 +19,7 @@ public class ElapsedTimeTracker implements ResourceUsageTracker {
     }
 
     @Override
-    public boolean shouldCancel(Task task) {
-        return System.currentTimeMillis() - task.getStartTime() >= ELAPSED_TIME_MILLIS_THRESHOLD;
+    public double cancellationScore(Task task) {
+        return (System.currentTimeMillis() - task.getStartTime() >= ELAPSED_TIME_MILLIS_THRESHOLD) ? 1 : 0;
     }
 }

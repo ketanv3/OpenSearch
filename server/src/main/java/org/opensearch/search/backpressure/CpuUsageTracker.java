@@ -19,7 +19,7 @@ public class CpuUsageTracker implements ResourceUsageTracker {
     }
 
     @Override
-    public boolean shouldCancel(Task task) {
-        return task.getTotalResourceStats().getCpuTimeInNanos() >= CPU_TIME_NANOS_THRESHOLD;
+    public double cancellationScore(Task task) {
+        return (task.getTotalResourceStats().getCpuTimeInNanos() >= CPU_TIME_NANOS_THRESHOLD) ? 1 : 0;
     }
 }

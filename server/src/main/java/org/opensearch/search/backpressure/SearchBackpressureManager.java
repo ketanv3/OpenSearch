@@ -12,6 +12,7 @@ import com.sun.management.OperatingSystemMXBean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchShardTask;
+import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
@@ -27,6 +28,7 @@ import org.opensearch.threadpool.ThreadPool;
 import java.lang.management.ManagementFactory;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public class SearchBackpressureManager implements Runnable, TaskCompletionListener {
@@ -43,7 +45,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
     public static final Setting<Boolean> SEARCH_BACKPRESSURE_ENFORCED = Setting.boolSetting(
         "search_backpressure.enforced",
-        false,
+        true,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
@@ -57,6 +59,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     private final AtomicInteger consecutiveCpuBreaches = new AtomicInteger(0);
     private final AtomicInteger consecutiveHeapBreaches = new AtomicInteger(0);
     private final AtomicInteger currentIterationCompletedTasks = new AtomicInteger(0);
+    private final AtomicLong totalCancellations = new AtomicLong(0);
 
     @Inject
     public SearchBackpressureManager(
@@ -110,7 +113,10 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
         for (CancellableTask task : getTasksForCancellation(searchShardTasks, maxTasksToCancel)) {
             logger.info("cancelling task due to high resource consumption: id={} action={}", task.getId(), task.getAction());
-            task.cancel("resource consumption exceeded");
+            if (isEnforced()) {
+                task.cancel("resource consumption exceeded");
+                totalCancellations.incrementAndGet();
+            }
         }
 
         // Reset the completed task count to zero.
@@ -154,9 +160,17 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     private List<CancellableTask> getTasksForCancellation(List<CancellableTask> tasks, int maxTasksToCancel) {
         return tasks.stream()
             .filter(task -> task.isCancelled() == false)
-            .filter(task -> trackers.stream().anyMatch(tracker -> tracker.shouldCancel(task)))
+            .map(this::totalCancellationScore)
+            .filter(tuple -> tuple.v2() > 0)
+            .sorted((a, b) -> Double.compare(b.v2(), a.v2()))
             .limit(maxTasksToCancel)
+            .map(Tuple::v1)
             .collect(Collectors.toUnmodifiableList());
+    }
+
+    private Tuple<CancellableTask, Double> totalCancellationScore(CancellableTask task) {
+        double score = trackers.stream().mapToDouble(tracker -> tracker.cancellationScore(task)).sum();
+        return new Tuple<>(task, score);
     }
 
     @Override
@@ -165,9 +179,13 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             return;
         }
 
-        currentIterationCompletedTasks.incrementAndGet();
+        SearchShardTask searchShardTask = (SearchShardTask) task;
+        if (searchShardTask.isCancelled() == false) {
+            currentIterationCompletedTasks.incrementAndGet();
+        }
+
         for (ResourceUsageTracker tracker : trackers) {
-            tracker.update(task);
+            tracker.update(searchShardTask);
         }
     }
 
@@ -185,5 +203,9 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
     public void setEnforced(boolean enforced) {
         this.enforced = enforced;
+    }
+
+    public long getTotalCancellations() {
+        return totalCancellations.get();
     }
 }

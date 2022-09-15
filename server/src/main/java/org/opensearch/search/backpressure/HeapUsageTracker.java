@@ -24,17 +24,21 @@ public class HeapUsageTracker implements ResourceUsageTracker {
     }
 
     @Override
-    public boolean shouldCancel(Task task) {
+    public double cancellationScore(Task task) {
         // There haven't been enough measurements.
         if (movingAverage.isReady() == false) {
-            return false;
+            return 0;
         }
 
         double taskHeapUsage = task.getTotalResourceStats().getMemoryInBytes();
         double averageHeapUsage = movingAverage.getAverage();
         double allowedHeapUsage = averageHeapUsage * Thresholds.SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD;
 
-        return taskHeapUsage >= Thresholds.SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES && taskHeapUsage >= allowedHeapUsage;
+        if (taskHeapUsage < Thresholds.SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES || taskHeapUsage < allowedHeapUsage) {
+            return 0;
+        }
+
+        return taskHeapUsage / averageHeapUsage;
     }
 
     private static final class MovingAverage {

@@ -41,6 +41,7 @@ import org.opensearch.index.IndexingPressure;
 import org.opensearch.index.ShardIndexingPressureMemoryManager;
 import org.opensearch.index.ShardIndexingPressureSettings;
 import org.opensearch.index.ShardIndexingPressureStore;
+import org.opensearch.search.backpressure.SearchBackpressureManager;
 import org.opensearch.tasks.TaskManager;
 import org.opensearch.tasks.TaskResourceTrackingService;
 import org.opensearch.watcher.ResourceWatcherService;
@@ -579,7 +580,9 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 ShardIndexingPressureMemoryManager.MAX_OUTSTANDING_REQUESTS,
                 IndexingPressure.MAX_INDEXING_BYTES,
                 TaskResourceTrackingService.TASK_RESOURCE_TRACKING_ENABLED,
-                TaskManager.TASK_RESOURCE_CONSUMERS_ENABLED
+                TaskManager.TASK_RESOURCE_CONSUMERS_ENABLED,
+                SearchBackpressureManager.SEARCH_BACKPRESSURE_ENABLED,
+                SearchBackpressureManager.SEARCH_BACKPRESSURE_ENFORCED
             )
         )
     );
