@@ -208,4 +208,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     public long getTotalCancellations() {
         return totalCancellations.get();
     }
+
+    public SearchBackpressureStats nodeStats() {
+        return new SearchBackpressureStats();
+    }
 }

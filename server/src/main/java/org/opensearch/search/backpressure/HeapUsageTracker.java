@@ -10,7 +10,6 @@ package org.opensearch.search.backpressure;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.monitor.jvm.JvmStats;
 import org.opensearch.tasks.Task;
 
 public class HeapUsageTracker implements ResourceUsageTracker {
