@@ -56,7 +56,7 @@ import org.opensearch.monitor.process.ProcessStats;
 import org.opensearch.node.AdaptiveSelectionStats;
 import org.opensearch.script.ScriptCacheStats;
 import org.opensearch.script.ScriptStats;
-import org.opensearch.search.backpressure.SearchBackpressureStats;
+import org.opensearch.search.backpressure.stats.SearchBackpressureStats;
 import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.transport.TransportStats;
 

@@ -6,16 +6,28 @@
  * compatible open source license.
  */
 
-package org.opensearch.search.backpressure;
+package org.opensearch.search.backpressure.trackers;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.common.collect.MapBuilder;
+import org.opensearch.search.backpressure.TaskCancellation;
+import org.opensearch.search.backpressure.Thresholds;
 import org.opensearch.tasks.Task;
 
-public class HeapUsageTracker implements ResourceUsageTracker {
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+public class HeapUsageTracker extends ResourceUsageTracker {
     private static final Logger logger = LogManager.getLogger(HeapUsageTracker.class);
 
     private final MovingAverage movingAverage = new MovingAverage(100);
+
+    @Override
+    public String name() {
+        return "heap_usage_tracker";
+    }
 
     @Override
     public void update(Task task) {
@@ -23,10 +35,10 @@ public class HeapUsageTracker implements ResourceUsageTracker {
     }
 
     @Override
-    public double cancellationScore(Task task) {
+    public Optional<TaskCancellation.Reason> cancellationReason(Task task) {
         // There haven't been enough measurements.
         if (movingAverage.isReady() == false) {
-            return 0;
+            return Optional.empty();
         }
 
         double taskHeapUsage = task.getTotalResourceStats().getMemoryInBytes();
@@ -34,10 +46,22 @@ public class HeapUsageTracker implements ResourceUsageTracker {
         double allowedHeapUsage = averageHeapUsage * Thresholds.SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD;
 
         if (taskHeapUsage < Thresholds.SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES || taskHeapUsage < allowedHeapUsage) {
-            return 0;
+            return Optional.empty();
         }
 
-        return taskHeapUsage / averageHeapUsage;
+        return Optional.of(new TaskCancellation.Reason(this, "heap usage exceeded", (int) (taskHeapUsage / averageHeapUsage)));
+    }
+
+    @Override
+    public Map<String, Double> currentStats(List<Task> activeTasks) {
+        double currentMax = activeTasks.stream().mapToDouble(t -> t.getTotalResourceStats().getMemoryInBytes()).max().orElse(0);
+        double currentAvg = activeTasks.stream().mapToDouble(t -> t.getTotalResourceStats().getMemoryInBytes()).average().orElse(0);
+
+        return new MapBuilder<String, Double>()
+            .put("current_max", currentMax)
+            .put("current_avg", currentAvg)
+            .put("rolling_avg", movingAverage.getAverage())
+            .immutableMap();
     }
 
     private static final class MovingAverage {

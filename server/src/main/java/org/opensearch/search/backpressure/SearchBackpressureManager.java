@@ -12,13 +12,18 @@ import com.sun.management.OperatingSystemMXBean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchShardTask;
-import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.monitor.jvm.JvmStats;
+import org.opensearch.search.backpressure.stats.CancellationStats;
+import org.opensearch.search.backpressure.stats.SearchBackpressureStats;
+import org.opensearch.search.backpressure.trackers.CpuUsageTracker;
+import org.opensearch.search.backpressure.trackers.ElapsedTimeTracker;
+import org.opensearch.search.backpressure.trackers.HeapUsageTracker;
+import org.opensearch.search.backpressure.trackers.ResourceUsageTracker;
 import org.opensearch.tasks.CancellableTask;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskResourceTrackingService;
@@ -26,9 +31,14 @@ import org.opensearch.tasks.TaskResourceTrackingService.TaskCompletionListener;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.lang.management.ManagementFactory;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class SearchBackpressureManager implements Runnable, TaskCompletionListener {
@@ -56,10 +66,13 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     private final TaskResourceTrackingService taskResourceTrackingService;
     private final List<ResourceUsageTracker> trackers;
 
-    private final AtomicInteger consecutiveCpuBreaches = new AtomicInteger(0);
-    private final AtomicInteger consecutiveHeapBreaches = new AtomicInteger(0);
-    private final AtomicInteger currentIterationCompletedTasks = new AtomicInteger(0);
-    private final AtomicLong totalCancellations = new AtomicLong(0);
+    private final AtomicInteger consecutiveCpuBreaches = new AtomicInteger();
+    private final AtomicInteger consecutiveHeapBreaches = new AtomicInteger();
+    private final AtomicInteger currentIterationCompletedTasks = new AtomicInteger();
+
+    private final AtomicLong cancellationCount = new AtomicLong();
+    private final AtomicLong limitReachedCount = new AtomicLong();
+    private final AtomicReference<Map<String, Long>> lastCancelledTaskUsage = new AtomicReference<>(Collections.emptyMap());
 
     @Inject
     public SearchBackpressureManager(
@@ -111,11 +124,11 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             Math.max(1, (int) (currentIterationCompletedTasks.get() * Thresholds.MAX_TASK_CANCELLATION_PERCENTAGE))
         );
 
-        for (CancellableTask task : getTasksForCancellation(searchShardTasks, maxTasksToCancel)) {
-            logger.info("cancelling task due to high resource consumption: id={} action={}", task.getId(), task.getAction());
+        for (TaskCancellation taskCancellation : getTaskCancellations(searchShardTasks, maxTasksToCancel)) {
+            logger.info("calling task due to high resource consumption: id={} action={}", taskCancellation.getTask().getId(), taskCancellation.getTask().getAction());
             if (isEnforced()) {
-                task.cancel("resource consumption exceeded");
-                totalCancellations.incrementAndGet();
+                taskCancellation.cancel();
+                cancellationCount.incrementAndGet();
             }
         }
 
@@ -157,20 +170,23 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
      * Tasks are returned in reverse sorted order of their cancellation score. Cancelling a task with higher score has
      * better chance of recovering the node from duress.
      */
-    private List<CancellableTask> getTasksForCancellation(List<CancellableTask> tasks, int maxTasksToCancel) {
+    private List<TaskCancellation> getTaskCancellations(List<CancellableTask> tasks, int maxTasksToCancel) {
         return tasks.stream()
-            .filter(task -> task.isCancelled() == false)
-            .map(this::totalCancellationScore)
-            .filter(tuple -> tuple.v2() > 0)
-            .sorted((a, b) -> Double.compare(b.v2(), a.v2()))
+            .map(this::getTaskCancellation)
+            .filter(TaskCancellation::isEligibleForCancellation)
+            .sorted(Comparator.reverseOrder())
             .limit(maxTasksToCancel)
-            .map(Tuple::v1)
             .collect(Collectors.toUnmodifiableList());
     }
 
-    private Tuple<CancellableTask, Double> totalCancellationScore(CancellableTask task) {
-        double score = trackers.stream().mapToDouble(tracker -> tracker.cancellationScore(task)).sum();
-        return new Tuple<>(task, score);
+    private TaskCancellation getTaskCancellation(CancellableTask task) {
+        List<TaskCancellation.Reason> reasons = trackers.stream()
+            .map(tracker -> tracker.cancellationReason(task))
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toUnmodifiableList());
+
+        return new TaskCancellation(task, reasons);
     }
 
     @Override
@@ -205,11 +221,27 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         this.enforced = enforced;
     }
 
-    public long getTotalCancellations() {
-        return totalCancellations.get();
-    }
-
     public SearchBackpressureStats nodeStats() {
-        return new SearchBackpressureStats();
+        List<Task> searchShardTasks = taskResourceTrackingService.getResourceAwareTasks().values().stream()
+            .filter(task -> task instanceof SearchShardTask)
+            .collect(Collectors.toUnmodifiableList());
+
+        Map<String, Map<String, Double>> currentStats = trackers.stream()
+            .collect(Collectors.toMap(ResourceUsageTracker::name, tracker -> tracker.currentStats(searchShardTasks)));
+
+        Map<String, Long> cancellationsBreakup = trackers.stream()
+            .collect(Collectors.toMap(ResourceUsageTracker::name, ResourceUsageTracker::getCancellations));
+
+        return new SearchBackpressureStats(
+            currentStats,
+            new CancellationStats(
+                cancellationCount.get(),
+                cancellationsBreakup,
+                limitReachedCount.get(),
+                lastCancelledTaskUsage.get()
+            ),
+            true,
+            true
+        );
     }
 }
