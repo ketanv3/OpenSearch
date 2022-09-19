@@ -9,7 +9,7 @@
 package org.opensearch.common.util;
 
 /**
- * MovingAverage is used to calculate moving average of last 'n' observations.
+ * MovingAverage is used to calculate the moving average of last 'n' observations.
  */
 public class MovingAverage {
     private final int windowSize;
