@@ -24,6 +24,9 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Stats related to search backpressure.
+ */
 public class SearchBackpressureStats implements ToXContentFragment, Writeable {
     private final Map<String, ResourceUsageTracker.Stats> searchShardTaskCurrentStats;
     private final CancellationStats searchShardTaskCancellationStats;

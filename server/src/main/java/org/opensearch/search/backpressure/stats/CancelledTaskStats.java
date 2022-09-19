@@ -20,6 +20,9 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Stats related to a single cancelled task.
+ */
 public class CancelledTaskStats implements ToXContentObject, Writeable {
     private final long heapUsageBytes;
     private final long cpuUsageNanos;

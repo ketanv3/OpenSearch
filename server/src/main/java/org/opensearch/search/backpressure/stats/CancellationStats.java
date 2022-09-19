@@ -18,6 +18,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Stats related to the number of task cancellations.
+ */
 public class CancellationStats implements ToXContentObject, Writeable {
     private final long count;
     private final Map<String, Long> countBreakup;
