@@ -42,7 +42,7 @@ public class TaskCancellation implements Comparable<TaskCancellation> {
      * Cancels the task and increments the cancellation counters for all breaching resource usage trackers.
      */
     public CancelledTaskStats cancel() {
-        String message = reasons.stream().map(Reason::getMessage).collect(Collectors.joining(","));
+        String message = reasons.stream().map(Reason::getMessage).collect(Collectors.joining(", "));
         task.cancel("resource consumption exceeded [" + message + "]");
         reasons.forEach(reason -> reason.getTracker().incrementCancellations());
 
