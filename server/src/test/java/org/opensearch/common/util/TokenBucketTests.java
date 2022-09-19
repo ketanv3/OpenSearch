@@ -38,5 +38,12 @@ public class TokenBucketTests extends OpenSearchTestCase {
         mockTimeNanos.addAndGet(TimeUnit.MILLISECONDS.toNanos(500));
         assertTrue(tokenBucket.request());
         assertFalse(tokenBucket.request());
+
+        // Clock moves ahead by many seconds, but the token bucket should be capped at the 'burst' capacity.
+        mockTimeNanos.addAndGet(TimeUnit.SECONDS.toNanos(10));
+        assertTrue(tokenBucket.request());
+        assertTrue(tokenBucket.request());
+        assertTrue(tokenBucket.request());
+        assertFalse(tokenBucket.request());
     }
 }
