@@ -12,7 +12,6 @@ import com.sun.management.OperatingSystemMXBean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchShardTask;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -92,7 +91,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
-        this.trackers = List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker());
+        this.trackers = List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker(timeNanosSupplier));
         this.tokenBucket = new TokenBucket(3.0, 10.0, timeNanosSupplier);
 
         threadPool.scheduleWithFixedDelay(this, interval, ThreadPool.Names.SAME);

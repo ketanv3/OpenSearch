@@ -19,13 +19,21 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 /**
  * ElapsedTimeTracker evaluates if the task has been running for more time than allowed.
  */
 public class ElapsedTimeTracker extends ResourceUsageTracker {
     public static final String NAME = "elapsed_time_tracker";
-    public static final float ELAPSED_TIME_MILLIS_THRESHOLD = 30 * 1000;
+    public static final long ELAPSED_TIME_NANOS_THRESHOLD = TimeUnit.SECONDS.toNanos(30);
+
+    private final LongSupplier timeNanosSupplier;
+
+    public ElapsedTimeTracker(LongSupplier timeNanosSupplier) {
+        this.timeNanosSupplier = timeNanosSupplier;
+    }
 
     @Override
     public String name() {
@@ -39,7 +47,7 @@ public class ElapsedTimeTracker extends ResourceUsageTracker {
 
     @Override
     public Optional<TaskCancellation.Reason> cancellationReason(Task task) {
-        if (System.currentTimeMillis() - task.getStartTime() < ELAPSED_TIME_MILLIS_THRESHOLD) {
+        if (timeNanosSupplier.getAsLong() - task.getStartTimeNanos() < ELAPSED_TIME_NANOS_THRESHOLD) {
             return Optional.empty();
         }
 
