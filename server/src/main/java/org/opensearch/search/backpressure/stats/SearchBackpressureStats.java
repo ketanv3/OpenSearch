@@ -16,13 +16,13 @@ import org.opensearch.common.xcontent.XContentBuilder;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 
 public class SearchBackpressureStats implements ToXContentFragment, Writeable {
     private final Map<String, Map<String, Double>> searchShardTaskCurrentStats;
     private final CancellationStats searchShardTaskCancellationStats;
     private final boolean enabled;
     private final boolean enforced;
-
 
     public SearchBackpressureStats(
         Map<String, Map<String, Double>> searchShardTaskCurrentStats,
@@ -66,5 +66,18 @@ public class SearchBackpressureStats implements ToXContentFragment, Writeable {
         searchShardTaskCancellationStats.writeTo(out);
         out.writeBoolean(enabled);
         out.writeBoolean(enforced);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SearchBackpressureStats that = (SearchBackpressureStats) o;
+        return enabled == that.enabled && enforced == that.enforced && searchShardTaskCurrentStats.equals(that.searchShardTaskCurrentStats) && searchShardTaskCancellationStats.equals(that.searchShardTaskCancellationStats);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(searchShardTaskCurrentStats, searchShardTaskCancellationStats, enabled, enforced);
     }
 }

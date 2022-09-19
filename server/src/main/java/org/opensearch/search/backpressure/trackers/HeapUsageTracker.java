@@ -20,14 +20,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class MemoryUsageTracker extends ResourceUsageTracker {
-    private static final Logger logger = LogManager.getLogger(MemoryUsageTracker.class);
+public class HeapUsageTracker extends ResourceUsageTracker {
+    private static final Logger logger = LogManager.getLogger(HeapUsageTracker.class);
 
     private final MovingAverage movingAverage = new MovingAverage(100);
 
     @Override
     public String name() {
-        return "memory_usage_tracker";
+        return "heap_usage_tracker";
     }
 
     @Override
@@ -50,7 +50,7 @@ public class MemoryUsageTracker extends ResourceUsageTracker {
             return Optional.empty();
         }
 
-        return Optional.of(new TaskCancellation.Reason(this, "memory usage exceeded", (int) (taskHeapUsage / averageHeapUsage)));
+        return Optional.of(new TaskCancellation.Reason(this, "heap usage exceeded", (int) (taskHeapUsage / averageHeapUsage)));
     }
 
     @Override

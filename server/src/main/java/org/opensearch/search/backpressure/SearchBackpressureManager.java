@@ -24,7 +24,7 @@ import org.opensearch.search.backpressure.stats.CancelledTaskStats;
 import org.opensearch.search.backpressure.stats.SearchBackpressureStats;
 import org.opensearch.search.backpressure.trackers.CpuUsageTracker;
 import org.opensearch.search.backpressure.trackers.ElapsedTimeTracker;
-import org.opensearch.search.backpressure.trackers.MemoryUsageTracker;
+import org.opensearch.search.backpressure.trackers.HeapUsageTracker;
 import org.opensearch.search.backpressure.trackers.ResourceUsageTracker;
 import org.opensearch.tasks.CancellableTask;
 import org.opensearch.tasks.Task;
@@ -91,7 +91,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
-        this.trackers = List.of(new CpuUsageTracker(), new MemoryUsageTracker(), new ElapsedTimeTracker());
+        this.trackers = List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker());
 
         threadPool.scheduleWithFixedDelay(this, interval, ThreadPool.Names.SAME);
     }

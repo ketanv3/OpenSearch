@@ -16,6 +16,7 @@ import org.opensearch.common.xcontent.XContentBuilder;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 
 public class CancellationStats implements ToXContentObject, Writeable {
     private final long count;
@@ -56,5 +57,18 @@ public class CancellationStats implements ToXContentObject, Writeable {
         out.writeMap(countBreakup, StreamOutput::writeString, StreamOutput::writeVLong);
         out.writeVLong(limitReachedCount);
         out.writeOptionalWriteable(lastCancelledTaskStats);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        CancellationStats that = (CancellationStats) o;
+        return count == that.count && limitReachedCount == that.limitReachedCount && countBreakup.equals(that.countBreakup) && Objects.equals(lastCancelledTaskStats, that.lastCancelledTaskStats);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(count, countBreakup, limitReachedCount, lastCancelledTaskStats);
     }
 }
