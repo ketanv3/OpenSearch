@@ -192,7 +192,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             .map(Optional::get)
             .collect(Collectors.toUnmodifiableList());
 
-        return new TaskCancellation(task, reasons);
+        return new TaskCancellation(task, reasons, System::nanoTime);
     }
 
     /**
