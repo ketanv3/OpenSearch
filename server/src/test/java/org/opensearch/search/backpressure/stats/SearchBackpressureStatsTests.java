@@ -10,9 +10,11 @@ package org.opensearch.search.backpressure.stats;
 
 import org.opensearch.common.collect.MapBuilder;
 import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.search.backpressure.trackers.CpuUsageTracker;
+import org.opensearch.search.backpressure.trackers.ElapsedTimeTracker;
+import org.opensearch.search.backpressure.trackers.HeapUsageTracker;
+import org.opensearch.search.backpressure.trackers.ResourceUsageTracker;
 import org.opensearch.test.AbstractWireSerializingTestCase;
-
-import java.util.Map;
 
 public class SearchBackpressureStatsTests extends AbstractWireSerializingTestCase<SearchBackpressureStats> {
     @Override
@@ -23,9 +25,10 @@ public class SearchBackpressureStatsTests extends AbstractWireSerializingTestCas
     @Override
     protected SearchBackpressureStats createTestInstance() {
         return new SearchBackpressureStats(
-            new MapBuilder<String, Map<String, Double>>()
-                .put("foo", new MapBuilder<String, Double>().put("current_avg", 12.0).put("current_max", 50.0).immutableMap())
-                .put("bar", new MapBuilder<String, Double>().put("rolling_avg", 10.0).immutableMap())
+            new MapBuilder<String, ResourceUsageTracker.Stats>()
+                .put(CpuUsageTracker.NAME, new CpuUsageTracker.Stats(randomNonNegativeLong(), randomNonNegativeLong()))
+                .put(HeapUsageTracker.NAME, new HeapUsageTracker.Stats(randomNonNegativeLong(), randomNonNegativeLong(), randomNonNegativeLong()))
+                .put(ElapsedTimeTracker.NAME, new ElapsedTimeTracker.Stats(randomNonNegativeLong(), randomNonNegativeLong()))
                 .immutableMap(),
             CancellationStatsTests.randomInstance(),
             randomBoolean(),

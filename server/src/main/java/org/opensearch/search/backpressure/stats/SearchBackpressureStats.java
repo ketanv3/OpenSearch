@@ -8,24 +8,30 @@
 
 package org.opensearch.search.backpressure.stats;
 
+import org.opensearch.common.collect.MapBuilder;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.ToXContentFragment;
 import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.search.backpressure.trackers.CpuUsageTracker;
+import org.opensearch.search.backpressure.trackers.ElapsedTimeTracker;
+import org.opensearch.search.backpressure.trackers.HeapUsageTracker;
+import org.opensearch.search.backpressure.trackers.ResourceUsageTracker;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 
 public class SearchBackpressureStats implements ToXContentFragment, Writeable {
-    private final Map<String, Map<String, Double>> searchShardTaskCurrentStats;
+    private final Map<String, ResourceUsageTracker.Stats> searchShardTaskCurrentStats;
     private final CancellationStats searchShardTaskCancellationStats;
     private final boolean enabled;
     private final boolean enforced;
 
     public SearchBackpressureStats(
-        Map<String, Map<String, Double>> searchShardTaskCurrentStats,
+        Map<String, ResourceUsageTracker.Stats> searchShardTaskCurrentStats,
         CancellationStats searchShardTaskCancellationStats,
         boolean enabled,
         boolean enforced
@@ -38,7 +44,7 @@ public class SearchBackpressureStats implements ToXContentFragment, Writeable {
 
     public SearchBackpressureStats(StreamInput in) throws IOException {
         this(
-            in.readMap(StreamInput::readString, i -> i.readMap(StreamInput::readString, StreamInput::readDouble)),
+            readStats(in),
             new CancellationStats(in),
             in.readBoolean(),
             in.readBoolean()
@@ -62,10 +68,37 @@ public class SearchBackpressureStats implements ToXContentFragment, Writeable {
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeMap(searchShardTaskCurrentStats, StreamOutput::writeString, (o, stats) -> o.writeMap(stats, StreamOutput::writeString, StreamOutput::writeDouble));
+        out.writeMap(searchShardTaskCurrentStats, StreamOutput::writeString, (o, stats) -> stats.writeTo(o));
         searchShardTaskCancellationStats.writeTo(out);
         out.writeBoolean(enabled);
         out.writeBoolean(enforced);
+    }
+
+    private static Map<String, ResourceUsageTracker.Stats> readStats(StreamInput in) throws IOException {
+        int size = in.readVInt();
+        if (size == 0) {
+            return Collections.emptyMap();
+        }
+
+        MapBuilder<String, ResourceUsageTracker.Stats> builder = new MapBuilder<>();
+        for (int i = 0; i < size; i++) {
+            String key = in.readString();
+            switch (key) {
+                case CpuUsageTracker.NAME:
+                    builder.put(key, new CpuUsageTracker.Stats(in));
+                    break;
+                case HeapUsageTracker.NAME:
+                    builder.put(key, new HeapUsageTracker.Stats(in));
+                    break;
+                case ElapsedTimeTracker.NAME:
+                    builder.put(key, new ElapsedTimeTracker.Stats(in));
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid stats type = " + key);
+            }
+        }
+
+        return builder.immutableMap();
     }
 
     @Override

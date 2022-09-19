@@ -246,7 +246,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             .filter(task -> task instanceof SearchShardTask)
             .collect(Collectors.toUnmodifiableList());
 
-        Map<String, Map<String, Double>> currentStats = trackers.stream()
+        Map<String, ResourceUsageTracker.Stats> currentStats = trackers.stream()
             .collect(Collectors.toMap(ResourceUsageTracker::name, tracker -> tracker.currentStats(searchShardTasks)));
 
         Map<String, Long> cancellationsBreakup = trackers.stream()

@@ -8,11 +8,12 @@
 
 package org.opensearch.search.backpressure.trackers;
 
+import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.search.backpressure.TaskCancellation;
 import org.opensearch.tasks.Task;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -37,7 +38,7 @@ public abstract class ResourceUsageTracker {
     /**
      * Returns the current state of the tracker as seen in the _stats API.
      */
-    public abstract Map<String, Double> currentStats(List<Task> activeTasks);
+    public abstract Stats currentStats(List<Task> activeTasks);
 
     public long incrementCancellations() {
         return cancellations.incrementAndGet();
@@ -46,4 +47,6 @@ public abstract class ResourceUsageTracker {
     public long getCancellations() {
         return cancellations.get();
     }
+
+    public interface Stats extends ToXContentObject, Writeable {}
 }

@@ -8,26 +8,29 @@
 
 package org.opensearch.search.backpressure.trackers;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.common.collect.MapBuilder;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.util.MovingAverage;
+import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.search.backpressure.TaskCancellation;
 import org.opensearch.search.backpressure.Thresholds;
 import org.opensearch.tasks.Task;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public class HeapUsageTracker extends ResourceUsageTracker {
-    private static final Logger logger = LogManager.getLogger(HeapUsageTracker.class);
-
+    public static final String NAME = "heap_usage_tracker";
     private final MovingAverage movingAverage = new MovingAverage(100);
 
     @Override
     public String name() {
-        return "heap_usage_tracker";
+        return NAME;
     }
 
     @Override
@@ -54,14 +57,55 @@ public class HeapUsageTracker extends ResourceUsageTracker {
     }
 
     @Override
-    public Map<String, Double> currentStats(List<Task> activeTasks) {
-        double currentMax = activeTasks.stream().mapToDouble(t -> t.getTotalResourceStats().getMemoryInBytes()).max().orElse(0);
-        double currentAvg = activeTasks.stream().mapToDouble(t -> t.getTotalResourceStats().getMemoryInBytes()).average().orElse(0);
+    public ResourceUsageTracker.Stats currentStats(List<Task> activeTasks) {
+        long currentMax = activeTasks.stream().mapToLong(t -> t.getTotalResourceStats().getMemoryInBytes()).max().orElse(0);
+        long currentAvg = (long) activeTasks.stream().mapToLong(t -> t.getTotalResourceStats().getMemoryInBytes()).average().orElse(0);
+        return new Stats(currentMax, currentAvg, (long) movingAverage.getAverage());
+    }
 
-        return new MapBuilder<String, Double>()
-            .put("current_max", currentMax)
-            .put("current_avg", currentAvg)
-            .put("rolling_avg", movingAverage.getAverage())
-            .immutableMap();
+    public static class Stats implements ResourceUsageTracker.Stats {
+        private final long currentMax;
+        private final long currentAvg;
+        private final long rollingAvg;
+
+        public Stats(long currentMax, long currentAvg, long rollingAvg) {
+            this.currentMax = currentMax;
+            this.currentAvg = currentAvg;
+            this.rollingAvg = rollingAvg;
+        }
+
+        public Stats(StreamInput in) throws IOException {
+            this(in.readVLong(), in.readVLong(), in.readVLong());
+        }
+
+        @Override
+        public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+            return builder
+                .startObject()
+                .humanReadableField("current_max_bytes", "current_max", new ByteSizeValue(currentMax))
+                .humanReadableField("current_avg_bytes", "current_avg", new ByteSizeValue(currentAvg))
+                .humanReadableField("rolling_avg_bytes", "rolling_avg", new ByteSizeValue(rollingAvg))
+                .endObject();
+        }
+
+        @Override
+        public void writeTo(StreamOutput out) throws IOException {
+            out.writeVLong(currentMax);
+            out.writeVLong(currentAvg);
+            out.writeVLong(rollingAvg);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Stats stats = (Stats) o;
+            return currentMax == stats.currentMax && currentAvg == stats.currentAvg && rollingAvg == stats.rollingAvg;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(currentMax, currentAvg, rollingAvg);
+        }
     }
 }
