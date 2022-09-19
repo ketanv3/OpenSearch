@@ -8,6 +8,7 @@
 
 package org.opensearch.search.backpressure;
 
+import org.opensearch.search.backpressure.stats.CancelledTaskStats;
 import org.opensearch.search.backpressure.trackers.ResourceUsageTracker;
 import org.opensearch.tasks.CancellableTask;
 
@@ -24,10 +25,16 @@ public class TaskCancellation implements Comparable<TaskCancellation> {
         this.reasons = reasons;
     }
 
-    public void cancel() {
+    public CancelledTaskStats cancel() {
         String message = reasons.stream().map(Reason::getMessage).collect(Collectors.joining(","));
         task.cancel("resource consumption exceeded [" + message + "]");
         reasons.forEach(reason -> reason.getTracker().incrementCancellations());
+
+        return new CancelledTaskStats(
+            task.getTotalResourceStats().getMemoryInBytes(),
+            task.getTotalResourceStats().getCpuTimeInNanos(),
+            System.nanoTime() - task.getStartTimeNanos()
+        );
     }
 
     public CancellableTask getTask() {

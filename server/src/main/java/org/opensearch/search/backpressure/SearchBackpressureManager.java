@@ -17,12 +17,14 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.TokenBucket;
 import org.opensearch.monitor.jvm.JvmStats;
 import org.opensearch.search.backpressure.stats.CancellationStats;
+import org.opensearch.search.backpressure.stats.CancelledTaskStats;
 import org.opensearch.search.backpressure.stats.SearchBackpressureStats;
 import org.opensearch.search.backpressure.trackers.CpuUsageTracker;
 import org.opensearch.search.backpressure.trackers.ElapsedTimeTracker;
-import org.opensearch.search.backpressure.trackers.HeapUsageTracker;
+import org.opensearch.search.backpressure.trackers.MemoryUsageTracker;
 import org.opensearch.search.backpressure.trackers.ResourceUsageTracker;
 import org.opensearch.tasks.CancellableTask;
 import org.opensearch.tasks.Task;
@@ -31,7 +33,6 @@ import org.opensearch.tasks.TaskResourceTrackingService.TaskCompletionListener;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.lang.management.ManagementFactory;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -72,7 +73,9 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
     private final AtomicLong cancellationCount = new AtomicLong();
     private final AtomicLong limitReachedCount = new AtomicLong();
-    private final AtomicReference<Map<String, Long>> lastCancelledTaskUsage = new AtomicReference<>(Collections.emptyMap());
+    private final AtomicReference<CancelledTaskStats> lastCancelledTaskUsage = new AtomicReference<>();
+
+    private final TokenBucket tokenBucket = new TokenBucket(3, 10);
 
     @Inject
     public SearchBackpressureManager(
@@ -88,7 +91,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
-        this.trackers = List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker());
+        this.trackers = List.of(new CpuUsageTracker(), new MemoryUsageTracker(), new ElapsedTimeTracker());
 
         threadPool.scheduleWithFixedDelay(this, interval, ThreadPool.Names.SAME);
     }
@@ -104,10 +107,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         }
 
         // We are only targeting in-flight cancellation of SearchShardTask for now.
-        List<CancellableTask> searchShardTasks = taskResourceTrackingService.getResourceAwareTasks().values().stream()
-            .filter(task -> task instanceof SearchShardTask)
-            .map(task -> (CancellableTask) task)
-            .collect(Collectors.toUnmodifiableList());
+        List<CancellableTask> searchShardTasks = getSearchShardTasks();
 
         // Force-refresh usage stats of these tasks before making a cancellation decision.
         taskResourceTrackingService.refreshResourceStats(searchShardTasks.toArray(new Task[0]));
@@ -119,15 +119,20 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         }
 
         // Calculate the maximum number of tasks to cancel based on the successful task completion rate.
-        int maxTasksToCancel = Math.min(
-            Thresholds.MAX_TASK_CANCELLATION_COUNT,
-            Math.max(1, (int) (currentIterationCompletedTasks.get() * Thresholds.MAX_TASK_CANCELLATION_PERCENTAGE))
-        );
+        int maxTasksToCancel = Math.max(1, (int) (currentIterationCompletedTasks.get() * Thresholds.MAX_TASK_CANCELLATION_PERCENTAGE));
+        int currentIterationCancellationCount = 0;
 
-        for (TaskCancellation taskCancellation : getTaskCancellations(searchShardTasks, maxTasksToCancel)) {
+        for (TaskCancellation taskCancellation : getTaskCancellations(searchShardTasks)) {
+            if (currentIterationCancellationCount++ >= maxTasksToCancel || tokenBucket.request() == false) {
+                limitReachedCount.incrementAndGet();
+                break;
+            }
+
             logger.info("calling task due to high resource consumption: id={} action={}", taskCancellation.getTask().getId(), taskCancellation.getTask().getAction());
+
             if (isEnforced()) {
-                taskCancellation.cancel();
+                CancelledTaskStats stats = taskCancellation.cancel();
+                lastCancelledTaskUsage.set(stats);
                 cancellationCount.incrementAndGet();
             }
         }
@@ -166,19 +171,20 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     }
 
     /**
-     * Returns the list of tasks eligible for cancellation.
-     * Tasks are returned in reverse sorted order of their cancellation score. Cancelling a task with higher score has
-     * better chance of recovering the node from duress.
+     * Filters and returns the list of actively running SearchShardTasks.
      */
-    private List<TaskCancellation> getTaskCancellations(List<CancellableTask> tasks, int maxTasksToCancel) {
-        return tasks.stream()
-            .map(this::getTaskCancellation)
-            .filter(TaskCancellation::isEligibleForCancellation)
-            .sorted(Comparator.reverseOrder())
-            .limit(maxTasksToCancel)
+    private List<CancellableTask> getSearchShardTasks() {
+        return taskResourceTrackingService.getResourceAwareTasks().values().stream()
+            .filter(task -> task instanceof SearchShardTask)
+            .map(task -> (CancellableTask) task)
             .collect(Collectors.toUnmodifiableList());
     }
 
+    /**
+     * Returns the TaskCancellation wrapper for the given task.
+     * The TaskCancellation contains a list of reasons (possibly zero) to cancel the task, along with an overall
+     * cancellation score. Cancelling a task with a higher score has a better chance of recovering the node from duress.
+     */
     private TaskCancellation getTaskCancellation(CancellableTask task) {
         List<TaskCancellation.Reason> reasons = trackers.stream()
             .map(tracker -> tracker.cancellationReason(task))
@@ -187,6 +193,17 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             .collect(Collectors.toUnmodifiableList());
 
         return new TaskCancellation(task, reasons);
+    }
+
+    /**
+     * Returns the list of TaskCancellations sorted by descending order of their cancellation score.
+     */
+    private List<TaskCancellation> getTaskCancellations(List<CancellableTask> tasks) {
+        return tasks.stream()
+            .map(this::getTaskCancellation)
+            .filter(TaskCancellation::isEligibleForCancellation)
+            .sorted(Comparator.reverseOrder())
+            .collect(Collectors.toUnmodifiableList());
     }
 
     @Override
@@ -221,6 +238,9 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         this.enforced = enforced;
     }
 
+    /**
+     * Returns the stats for the "/_node/stats/search_backpressure" API.
+     */
     public SearchBackpressureStats nodeStats() {
         List<Task> searchShardTasks = taskResourceTrackingService.getResourceAwareTasks().values().stream()
             .filter(task -> task instanceof SearchShardTask)

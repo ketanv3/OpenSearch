@@ -11,6 +11,7 @@ package org.opensearch.search.backpressure.trackers;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.collect.MapBuilder;
+import org.opensearch.common.util.MovingAverage;
 import org.opensearch.search.backpressure.TaskCancellation;
 import org.opensearch.search.backpressure.Thresholds;
 import org.opensearch.tasks.Task;
@@ -19,14 +20,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class HeapUsageTracker extends ResourceUsageTracker {
-    private static final Logger logger = LogManager.getLogger(HeapUsageTracker.class);
+public class MemoryUsageTracker extends ResourceUsageTracker {
+    private static final Logger logger = LogManager.getLogger(MemoryUsageTracker.class);
 
     private final MovingAverage movingAverage = new MovingAverage(100);
 
     @Override
     public String name() {
-        return "heap_usage_tracker";
+        return "memory_usage_tracker";
     }
 
     @Override
@@ -49,7 +50,7 @@ public class HeapUsageTracker extends ResourceUsageTracker {
             return Optional.empty();
         }
 
-        return Optional.of(new TaskCancellation.Reason(this, "heap usage exceeded", (int) (taskHeapUsage / averageHeapUsage)));
+        return Optional.of(new TaskCancellation.Reason(this, "memory usage exceeded", (int) (taskHeapUsage / averageHeapUsage)));
     }
 
     @Override
@@ -62,45 +63,5 @@ public class HeapUsageTracker extends ResourceUsageTracker {
             .put("current_avg", currentAvg)
             .put("rolling_avg", movingAverage.getAverage())
             .immutableMap();
-    }
-
-    private static final class MovingAverage {
-        private final int windowSize;
-        private final long[] observations;
-
-        private long count = 0;
-        private long sum = 0;
-        private double average = 0;
-
-        public MovingAverage(int windowSize) {
-            if (windowSize <= 0) {
-                throw new IllegalArgumentException("window size must be greater than zero");
-            }
-
-            this.windowSize = windowSize;
-            this.observations = new long[windowSize];
-        }
-
-        public synchronized double record(long value) {
-            long delta = value - observations[(int) (count % observations.length)];
-            observations[(int) (count % observations.length)] = value;
-
-            count++;
-            sum += delta;
-            average = (double) sum / Math.min(count, observations.length);
-            return average;
-        }
-
-        public double getAverage() {
-            return average;
-        }
-
-        public long getCount() {
-            return count;
-        }
-
-        public boolean isReady() {
-            return count >= windowSize;
-        }
     }
 }

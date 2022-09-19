@@ -21,13 +21,13 @@ public class CancellationStats implements ToXContentObject, Writeable {
     private final long count;
     private final Map<String, Long> countBreakup;
     private final long limitReachedCount;
-    private final Map<String, Long> lastCancelledTaskUsage;
+    private final CancelledTaskStats lastCancelledTaskStats;
 
-    public CancellationStats(long count, Map<String, Long> countBreakup, long limitReachedCount, Map<String, Long> lastCancelledTaskUsage) {
+    public CancellationStats(long count, Map<String, Long> countBreakup, long limitReachedCount, CancelledTaskStats lastCancelledTaskStats) {
         this.count = count;
         this.countBreakup = countBreakup;
         this.limitReachedCount = limitReachedCount;
-        this.lastCancelledTaskUsage = lastCancelledTaskUsage;
+        this.lastCancelledTaskStats = lastCancelledTaskStats;
     }
 
     public CancellationStats(StreamInput in) throws IOException {
@@ -35,7 +35,7 @@ public class CancellationStats implements ToXContentObject, Writeable {
             in.readVLong(),
             in.readMap(StreamInput::readString, StreamInput::readVLong),
             in.readVLong(),
-            in.readMap(StreamInput::readString, StreamInput::readVLong)
+            in.readOptionalWriteable(CancelledTaskStats::new)
         );
     }
 
@@ -46,7 +46,7 @@ public class CancellationStats implements ToXContentObject, Writeable {
             .field("cancellation_count", count)
             .field("cancellation_breakup", countBreakup)
             .field("cancellation_limit_reached_count", limitReachedCount)
-            .field("last_cancelled_task", lastCancelledTaskUsage)
+            .field("last_cancelled_task", lastCancelledTaskStats)
             .endObject();
     }
 
@@ -55,6 +55,6 @@ public class CancellationStats implements ToXContentObject, Writeable {
         out.writeVLong(count);
         out.writeMap(countBreakup, StreamOutput::writeString, StreamOutput::writeVLong);
         out.writeVLong(limitReachedCount);
-        out.writeMap(lastCancelledTaskUsage, StreamOutput::writeString, StreamOutput::writeVLong);
+        out.writeOptionalWriteable(lastCancelledTaskStats);
     }
 }
