@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
 public class SearchBackpressureManager implements Runnable, TaskCompletionListener {
@@ -75,14 +76,14 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     private final AtomicLong limitReachedCount = new AtomicLong();
     private final AtomicReference<CancelledTaskStats> lastCancelledTaskUsage = new AtomicReference<>();
 
-    private final TokenBucket tokenBucket = new TokenBucket(3, 10);
+    private final TokenBucket tokenBucket;
 
-    @Inject
     public SearchBackpressureManager(
         Settings settings,
         ClusterSettings clusterSettings,
         TaskResourceTrackingService taskResourceTrackingService,
-        ThreadPool threadPool
+        ThreadPool threadPool,
+        LongSupplier timeNanosSupplier
     ) {
         this.enabled = SEARCH_BACKPRESSURE_ENABLED.get(settings);
         this.enforced = SEARCH_BACKPRESSURE_ENFORCED.get(settings);
@@ -92,6 +93,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
         this.trackers = List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker());
+        this.tokenBucket = new TokenBucket(3.0, 10.0, timeNanosSupplier);
 
         threadPool.scheduleWithFixedDelay(this, interval, ThreadPool.Names.SAME);
     }

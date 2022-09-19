@@ -8,6 +8,9 @@
 
 package org.opensearch.common.util;
 
+/**
+ * MovingAverage is used to calculate moving average of last 'n' observations.
+ */
 public class MovingAverage {
     private final int windowSize;
     private final long[] observations;
@@ -25,6 +28,9 @@ public class MovingAverage {
         this.observations = new long[windowSize];
     }
 
+    /**
+     * Records a new observation and evicts the n-th last observation.
+     */
     public synchronized double record(long value) {
         long delta = value - observations[(int) (count % observations.length)];
         observations[(int) (count % observations.length)] = value;
