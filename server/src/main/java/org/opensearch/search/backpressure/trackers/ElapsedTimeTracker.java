@@ -8,7 +8,6 @@
 
 package org.opensearch.search.backpressure.trackers;
 
-import org.opensearch.common.collect.MapBuilder;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.unit.ByteSizeValue;
@@ -18,10 +17,12 @@ import org.opensearch.tasks.Task;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * ElapsedTimeTracker evaluates if the task has been running for more time than allowed.
+ */
 public class ElapsedTimeTracker extends ResourceUsageTracker {
     public static final String NAME = "elapsed_time_tracker";
     public static final float ELAPSED_TIME_MILLIS_THRESHOLD = 30 * 1000;

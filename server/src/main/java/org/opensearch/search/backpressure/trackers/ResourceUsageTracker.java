@@ -17,28 +17,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * ResourceUsageTracker is used to track completions and cancellations of search-related tasks.
+ */
 public abstract class ResourceUsageTracker {
+    /**
+     * Counts the number of cancellations made due to this tracker.
+     */
     private final AtomicLong cancellations = new AtomicLong();
-
-    public abstract String name();
-
-    /**
-     * Notifies the tracker to update its state when the task execution completes.
-     */
-    public abstract void update(Task task);
-
-    /**
-     * Returns the cancellation reason for the given task.
-     *
-     * If the score is zero, then the task hasn't breached thresholds and should not be cancelled.
-     * A higher score suggests greater possibility of recovering the node when that task is cancelled.
-     */
-    public abstract Optional<TaskCancellation.Reason> cancellationReason(Task task);
-
-    /**
-     * Returns the current state of the tracker as seen in the _stats API.
-     */
-    public abstract Stats currentStats(List<Task> activeTasks);
 
     public long incrementCancellations() {
         return cancellations.incrementAndGet();
@@ -48,5 +34,28 @@ public abstract class ResourceUsageTracker {
         return cancellations.get();
     }
 
+    /**
+     * Returns a unique name for this tracker.
+     */
+    public abstract String name();
+
+    /**
+     * Notifies the tracker to update its state when the task execution completes.
+     */
+    public abstract void update(Task task);
+
+    /**
+     * Returns the cancellation reason for the given task, if it's eligible for cancellation.
+     */
+    public abstract Optional<TaskCancellation.Reason> cancellationReason(Task task);
+
+    /**
+     * Returns the current state of the tracker as seen in the stats API.
+     */
+    public abstract Stats currentStats(List<Task> activeTasks);
+
+    /**
+     * Interface for the tracker's state as seen in the stats API.
+     */
     public interface Stats extends ToXContentObject, Writeable {}
 }

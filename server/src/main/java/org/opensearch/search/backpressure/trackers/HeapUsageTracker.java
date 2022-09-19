@@ -8,7 +8,6 @@
 
 package org.opensearch.search.backpressure.trackers;
 
-import org.opensearch.common.collect.MapBuilder;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.unit.ByteSizeValue;
@@ -20,10 +19,13 @@ import org.opensearch.tasks.Task;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * HeapUsageTracker evaluates if the task has consumed too much heap than allowed. It also evaluates the task's heap
+ * consumption against a historical moving average of previously completed tasks.
+ */
 public class HeapUsageTracker extends ResourceUsageTracker {
     public static final String NAME = "heap_usage_tracker";
     private final MovingAverage movingAverage = new MovingAverage(100);

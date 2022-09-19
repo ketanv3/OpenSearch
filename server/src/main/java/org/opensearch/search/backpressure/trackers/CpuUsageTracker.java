@@ -8,7 +8,6 @@
 
 package org.opensearch.search.backpressure.trackers;
 
-import org.opensearch.common.collect.MapBuilder;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.unit.ByteSizeValue;
@@ -18,10 +17,12 @@ import org.opensearch.tasks.Task;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * CpuUsageTracker evaluates if the task has consumed too many CPU cycles than allowed.
+ */
 public class CpuUsageTracker extends ResourceUsageTracker {
     public static final String NAME = "cpu_usage_tracker";
     public static final float CPU_TIME_NANOS_THRESHOLD = 15 * 1000 * 1000;
