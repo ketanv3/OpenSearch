@@ -14,9 +14,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.common.Streak;
 import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.TokenBucket;
 import org.opensearch.monitor.jvm.JvmStats;
 import org.opensearch.search.backpressure.stats.CancellationStats;
@@ -47,25 +45,8 @@ import java.util.stream.Collectors;
 public class SearchBackpressureManager implements Runnable, TaskCompletionListener {
     private static final Logger logger = LogManager.getLogger(SearchBackpressureManager.class);
     private static final OperatingSystemMXBean osMXBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-    private static final TimeValue interval = TimeValue.timeValueSeconds(1);
 
-    public static final Setting<Boolean> SEARCH_BACKPRESSURE_ENABLED = Setting.boolSetting(
-        "search_backpressure.enabled",
-        true,
-        Setting.Property.Dynamic,
-        Setting.Property.NodeScope
-    );
-
-    public static final Setting<Boolean> SEARCH_BACKPRESSURE_ENFORCED = Setting.boolSetting(
-        "search_backpressure.enforced",
-        true,
-        Setting.Property.Dynamic,
-        Setting.Property.NodeScope
-    );
-
-    private volatile boolean enabled;
-    private volatile boolean enforced;
-
+    private final SearchBackpressureSettings settings;
     private final TaskResourceTrackingService taskResourceTrackingService;
     private final List<ResourceUsageTracker> trackers;
 
@@ -110,11 +91,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         DoubleSupplier heapUsageSupplier,
         List<ResourceUsageTracker> trackers
     ) {
-        this.enabled = SEARCH_BACKPRESSURE_ENABLED.get(settings);
-        this.enforced = SEARCH_BACKPRESSURE_ENFORCED.get(settings);
-        clusterSettings.addSettingsUpdateConsumer(SEARCH_BACKPRESSURE_ENABLED, this::setEnabled);
-        clusterSettings.addSettingsUpdateConsumer(SEARCH_BACKPRESSURE_ENFORCED, this::setEnforced);
-
+        this.settings = new SearchBackpressureSettings(settings, clusterSettings);
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
         this.trackers = trackers;
@@ -123,12 +100,12 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         this.cpuUsageSupplier = cpuUsageSupplier;
         this.heapUsageSupplier = heapUsageSupplier;
 
-        threadPool.scheduleWithFixedDelay(this, interval, ThreadPool.Names.SAME);
+        threadPool.scheduleWithFixedDelay(this, getSettings().getInterval(), ThreadPool.Names.SAME);
     }
 
     @Override
     public void run() {
-        if (isEnabled() == false) {
+        if (getSettings().isEnabled() == false) {
             return;
         }
 
@@ -155,7 +132,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         for (TaskCancellation taskCancellation : getTaskCancellations(searchShardTasks)) {
             logger.info("cancelling task due to high resource consumption: id={} reason={}", taskCancellation.getTask().getId(), taskCancellation.getReasonString());
 
-            if (isEnforced() == false) {
+            if (getSettings().isEnforced() == false) {
                 continue;
             }
 
@@ -246,20 +223,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         }
     }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public boolean isEnforced() {
-        return enforced;
-    }
-
-    public void setEnforced(boolean enforced) {
-        this.enforced = enforced;
+    public SearchBackpressureSettings getSettings() {
+        return settings;
     }
 
     public long getCurrentIterationCompletedTasks() {
