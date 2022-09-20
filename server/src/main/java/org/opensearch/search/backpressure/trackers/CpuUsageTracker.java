@@ -10,7 +10,7 @@ package org.opensearch.search.backpressure.trackers;
 
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.search.backpressure.TaskCancellation;
 import org.opensearch.tasks.Task;
@@ -70,8 +70,8 @@ public class CpuUsageTracker extends ResourceUsageTracker {
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
             return builder
                 .startObject()
-                .humanReadableField("current_max_bytes", "current_max", new ByteSizeValue(currentMax))
-                .humanReadableField("current_avg_bytes", "current_avg", new ByteSizeValue(currentAvg))
+                .humanReadableField("current_max_nanos", "current_max", new TimeValue(currentMax))
+                .humanReadableField("current_avg_nanos", "current_avg", new TimeValue(currentAvg))
                 .endObject();
         }
 

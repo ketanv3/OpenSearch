@@ -182,8 +182,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             heapUsageSupplier.getAsDouble(), Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD
         );
 
-        boolean isCpuBreached = cpuUsageSupplier.getAsDouble() > Thresholds.NODE_DURESS_CPU_USAGE_THRESHOLD;
-        boolean isHeapBreached = heapUsageSupplier.getAsDouble() > Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD;
+        boolean isCpuBreached = cpuUsageSupplier.getAsDouble() >= Thresholds.NODE_DURESS_CPU_USAGE_THRESHOLD;
+        boolean isHeapBreached = heapUsageSupplier.getAsDouble() >= Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD;
 
         boolean isCpuConsecutivelyBreached = cpuBreachesStreak.record(isCpuBreached) >= Thresholds.NUM_CONSECUTIVE_BREACHES;
         boolean isHeapConsecutivelyBreached = heapBreachesStreak.record(isHeapBreached) >= Thresholds.NUM_CONSECUTIVE_BREACHES;
