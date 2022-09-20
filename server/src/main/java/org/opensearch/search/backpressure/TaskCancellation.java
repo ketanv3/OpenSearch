@@ -47,8 +47,8 @@ public class TaskCancellation implements Comparable<TaskCancellation> {
         reasons.forEach(reason -> reason.getTracker().incrementCancellations());
 
         return new CancelledTaskStats(
-            task.getTotalResourceStats().getMemoryInBytes(),
             task.getTotalResourceStats().getCpuTimeInNanos(),
+            task.getTotalResourceStats().getMemoryInBytes(),
             timeNanosSupplier.getAsLong() - task.getStartTimeNanos()
         );
     }

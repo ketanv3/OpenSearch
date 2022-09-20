@@ -24,17 +24,17 @@ import java.util.concurrent.TimeUnit;
  * Stats related to a single cancelled task.
  */
 public class CancelledTaskStats implements ToXContentObject, Writeable {
-    private final long heapUsageBytes;
     private final long cpuUsageNanos;
+    private final long heapUsageBytes;
     private final long elapsedTimeNanos;
 
     public CancelledTaskStats(StreamInput in) throws IOException {
         this(in.readVLong(), in.readVLong(), in.readVLong());
     }
 
-    public CancelledTaskStats(long heapUsageBytes, long cpuUsageNanos, long elapsedTimeNanos) {
-        this.heapUsageBytes = heapUsageBytes;
+    public CancelledTaskStats(long cpuUsageNanos, long heapUsageBytes, long elapsedTimeNanos) {
         this.cpuUsageNanos = cpuUsageNanos;
+        this.heapUsageBytes = heapUsageBytes;
         this.elapsedTimeNanos = elapsedTimeNanos;
     }
 
@@ -42,16 +42,16 @@ public class CancelledTaskStats implements ToXContentObject, Writeable {
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         return builder
             .startObject()
-            .humanReadableField("heap_usage_bytes", "heap_usage", new ByteSizeValue(heapUsageBytes))
             .humanReadableField("cpu_usage_nanos", "cpu_usage", new TimeValue(cpuUsageNanos, TimeUnit.NANOSECONDS))
+            .humanReadableField("heap_usage_bytes", "heap_usage", new ByteSizeValue(heapUsageBytes))
             .humanReadableField("elapsed_time_nanos", "elapsed_time", new TimeValue(elapsedTimeNanos, TimeUnit.NANOSECONDS))
             .endObject();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeVLong(heapUsageBytes);
         out.writeVLong(cpuUsageNanos);
+        out.writeVLong(heapUsageBytes);
         out.writeVLong(elapsedTimeNanos);
     }
 
@@ -60,11 +60,11 @@ public class CancelledTaskStats implements ToXContentObject, Writeable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         CancelledTaskStats that = (CancelledTaskStats) o;
-        return heapUsageBytes == that.heapUsageBytes && cpuUsageNanos == that.cpuUsageNanos && elapsedTimeNanos == that.elapsedTimeNanos;
+        return cpuUsageNanos == that.cpuUsageNanos && heapUsageBytes == that.heapUsageBytes && elapsedTimeNanos == that.elapsedTimeNanos;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(heapUsageBytes, cpuUsageNanos, elapsedTimeNanos);
+        return Objects.hash(cpuUsageNanos, heapUsageBytes, elapsedTimeNanos);
     }
 }

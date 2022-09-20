@@ -56,7 +56,7 @@ public class ElapsedTimeTracker extends ResourceUsageTracker {
 
     @Override
     public ResourceUsageTracker.Stats currentStats(List<Task> activeTasks) {
-        long now = System.nanoTime();
+        long now = timeNanosSupplier.getAsLong();
         long currentMax = activeTasks.stream().mapToLong(t -> now - t.getStartTimeNanos()).max().orElse(0);
         long currentAvg = (long) activeTasks.stream().mapToLong(t -> now - t.getStartTimeNanos()).average().orElse(0);
         return new Stats(currentMax, currentAvg);

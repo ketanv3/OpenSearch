@@ -77,6 +77,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     private final AtomicReference<CancelledTaskStats> lastCancelledTaskUsage = new AtomicReference<>();
 
     private final TokenBucket tokenBucket;
+    private final LongSupplier timeNanosSupplier;
     private final DoubleSupplier cpuUsageSupplier;
     private final DoubleSupplier heapUsageSupplier;
 
@@ -93,7 +94,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             threadPool,
             System::nanoTime,
             osMXBean::getProcessCpuLoad,
-            () -> JvmStats.jvmStats().getMem().getHeapUsedPercent() / 100.0
+            () -> JvmStats.jvmStats().getMem().getHeapUsedPercent() / 100.0,
+            List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker(System::nanoTime))
         );
     }
 
@@ -104,7 +106,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         ThreadPool threadPool,
         LongSupplier timeNanosSupplier,
         DoubleSupplier cpuUsageSupplier,
-        DoubleSupplier heapUsageSupplier
+        DoubleSupplier heapUsageSupplier,
+        List<ResourceUsageTracker> trackers
     ) {
         this.enabled = SEARCH_BACKPRESSURE_ENABLED.get(settings);
         this.enforced = SEARCH_BACKPRESSURE_ENFORCED.get(settings);
@@ -113,8 +116,9 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
-        this.trackers = List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker(timeNanosSupplier));
+        this.trackers = trackers;
         this.tokenBucket = new TokenBucket(3.0, 10.0, timeNanosSupplier);
+        this.timeNanosSupplier = timeNanosSupplier;
         this.cpuUsageSupplier = cpuUsageSupplier;
         this.heapUsageSupplier = heapUsageSupplier;
 
@@ -209,7 +213,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             .map(Optional::get)
             .collect(Collectors.toUnmodifiableList());
 
-        return new TaskCancellation(task, reasons, System::nanoTime);
+        return new TaskCancellation(task, reasons, timeNanosSupplier);
     }
 
     /**
@@ -253,6 +257,22 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
     public void setEnforced(boolean enforced) {
         this.enforced = enforced;
+    }
+
+    public long getCurrentIterationCompletedTasks() {
+        return currentIterationCompletedTasks.get();
+    }
+
+    public long getCancellationCount() {
+        return cancellationCount.get();
+    }
+
+    public long getLimitReachedCount() {
+        return limitReachedCount.get();
+    }
+
+    public CancelledTaskStats getLastCancelledTaskUsage() {
+        return lastCancelledTaskUsage.get();
     }
 
     /**

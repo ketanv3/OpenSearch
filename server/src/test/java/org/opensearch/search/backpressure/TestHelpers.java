@@ -8,22 +8,35 @@
 
 package org.opensearch.search.backpressure;
 
-import org.opensearch.tasks.Task;
+import org.opensearch.tasks.CancellableTask;
 import org.opensearch.tasks.TaskResourceUsage;
+import org.opensearch.test.OpenSearchTestCase;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class TestHelpers {
+public class TestHelpers extends OpenSearchTestCase {
 
-    public static <T extends Task> T createMockTaskWithResourceStats(Class<T> type, long cpuUsage, long heapUsage) {
+    public static <T extends CancellableTask> T createMockTaskWithResourceStats(Class<T> type, long cpuUsage, long heapUsage) {
         return createMockTaskWithResourceStats(type, cpuUsage, heapUsage, 0);
     }
 
-    public static <T extends Task> T createMockTaskWithResourceStats(Class<T> type, long cpuUsage, long heapUsage, long startTimeNanos) {
+    public static <T extends CancellableTask> T createMockTaskWithResourceStats(Class<T> type, long cpuUsage, long heapUsage, long startTimeNanos) {
         T task = mock(type);
         when(task.getTotalResourceStats()).thenReturn(new TaskResourceUsage(cpuUsage, heapUsage));
         when(task.getStartTimeNanos()).thenReturn(startTimeNanos);
+
+        AtomicBoolean isCancelled = new AtomicBoolean(false);
+        doAnswer(invocation -> {
+            isCancelled.set(true);
+            return null;
+        }).when(task).cancel(anyString());
+        doAnswer(invocation -> isCancelled.get()).when(task).isCancelled();
+
         return task;
     }
 }
