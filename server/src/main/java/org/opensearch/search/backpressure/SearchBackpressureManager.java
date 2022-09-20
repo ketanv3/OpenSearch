@@ -153,18 +153,20 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         int currentIterationCancellationCount = 0;
 
         for (TaskCancellation taskCancellation : getTaskCancellations(searchShardTasks)) {
+            logger.info("cancelling task due to high resource consumption: id={} reason={}", taskCancellation.getTask().getId(), taskCancellation.getReasonString());
+
+            if (isEnforced() == false) {
+                continue;
+            }
+
             if (currentIterationCancellationCount++ >= maxTasksToCancel || tokenBucket.request() == false) {
                 limitReachedCount.incrementAndGet();
                 break;
             }
 
-            logger.info("calling task due to high resource consumption: id={} action={}", taskCancellation.getTask().getId(), taskCancellation.getTask().getAction());
-
-            if (isEnforced()) {
-                CancelledTaskStats stats = taskCancellation.cancel();
-                lastCancelledTaskUsage.set(stats);
-                cancellationCount.incrementAndGet();
-            }
+            CancelledTaskStats stats = taskCancellation.cancel();
+            lastCancelledTaskUsage.set(stats);
+            cancellationCount.incrementAndGet();
         }
 
         // Reset the completed task count to zero.
