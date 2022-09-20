@@ -20,7 +20,7 @@ public class TokenBucketTests extends OpenSearchTestCase {
         LongSupplier mockTimeNanosSupplier = mockTimeNanos::get;
 
         // Token bucket that refills at 2 tokens/second and allows short bursts up to 3 operations.
-        TokenBucket tokenBucket = new TokenBucket(2, 3, mockTimeNanosSupplier);
+        TokenBucket tokenBucket = new TokenBucket(mockTimeNanosSupplier, 2.0 / TimeUnit.SECONDS.toNanos(1), 3);
 
         // Three operations succeed, fourth fails.
         assertTrue(tokenBucket.request());
@@ -45,5 +45,27 @@ public class TokenBucketTests extends OpenSearchTestCase {
         assertTrue(tokenBucket.request());
         assertTrue(tokenBucket.request());
         assertFalse(tokenBucket.request());
+    }
+
+    public void testTokenBucketWithNegativeRate() {
+        try {
+            new TokenBucket(System::nanoTime, -1, 2);
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("rate must be greater than zero"));
+            return;
+        }
+
+        fail("exception should have been thrown");
+    }
+
+    public void testTokenBucketWithNegativeBurst() {
+        try {
+            new TokenBucket(System::nanoTime, 1, -2);
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("burst must be greater than zero"));
+            return;
+        }
+
+        fail("exception should have been thrown");
     }
 }

@@ -8,43 +8,58 @@
 
 package org.opensearch.common.util;
 
-import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 
 /**
  * TokenBucket is used to limit the number of operations at a constant rate while allowing for short bursts.
  */
 public class TokenBucket {
-    private static final double SECOND_TO_NANOS = TimeUnit.SECONDS.toNanos(1);
+    /**
+     * Defines a monotonically increasing counter.
+     *
+     * Some examples:
+     * 1. clock = System::nanoTime - to perform rate-limiting per unit time.
+     * 2. clock = AtomicLong::incrementAndGet - to perform rate-limiting per unit operation.
+     */
+    private final LongSupplier clock;
 
     /**
-     * Defines the rate at which tokens are added to the bucket each second.
+     * Defines the number of tokens added to the bucket per 'clock' cycle.
      */
     private final double rate;
 
     /**
-     * Defines the maximum number of operations that can be performed before the bucket runs out of tokens.
+     * Defines the capacity as well as the maximum number of operations that can be performed per 'clock' cycle before
+     * the bucket runs out of tokens.
      */
     private final double burst;
 
-    private final LongSupplier timeNanosSupplier;
     private double tokens;
+
     private long lastRefilledAt;
 
-    public TokenBucket(double rate, double burst, LongSupplier timeNanosSupplier) {
+    public TokenBucket(LongSupplier clock, double rate, double burst) {
+        if (rate <= 0.0) {
+            throw new IllegalArgumentException("rate must be greater than zero");
+        }
+
+        if (burst <= 0.0) {
+            throw new IllegalArgumentException("burst must be greater than zero");
+        }
+
+        this.clock = clock;
         this.rate = rate;
         this.burst = burst;
-        this.timeNanosSupplier = timeNanosSupplier;
         this.tokens = burst;
-        this.lastRefilledAt = timeNanosSupplier.getAsLong();
+        this.lastRefilledAt = clock.getAsLong();
     }
 
     /**
      * Refills the token bucket.
      */
     private void refill() {
-        long now = timeNanosSupplier.getAsLong();
-        double incr = ((now - lastRefilledAt) / SECOND_TO_NANOS) * rate;
+        long now = clock.getAsLong();
+        double incr = (now - lastRefilledAt) * rate;
         tokens = Math.min(tokens + incr, burst);
         lastRefilledAt = now;
     }
@@ -56,7 +71,7 @@ public class TokenBucket {
     public synchronized boolean request() {
         refill();
 
-        if (tokens >= 1) {
+        if (tokens >= 1.0) {
             tokens -= 1.0;
             return true;
         }

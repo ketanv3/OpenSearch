@@ -43,6 +43,6 @@ public class MovingAverageTests extends OpenSearchTestCase {
             return;
         }
 
-        fail("exception should have thrown");
+        fail("exception should have been thrown");
     }
 }
