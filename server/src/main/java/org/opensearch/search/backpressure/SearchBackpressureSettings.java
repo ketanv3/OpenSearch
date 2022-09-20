@@ -19,6 +19,14 @@ public class SearchBackpressureSettings {
 
         boolean ENABLED = true;
         boolean ENFORCED = true;
+
+        int NODE_DURESS_NUM_CONSECUTIVE_BREACHES = 3;
+        double NODE_DURESS_CPU_THRESHOLD = 0.9;
+        double NODE_DURESS_HEAP_THRESHOLD = 0.7;
+
+        double SEARCH_HEAP_USAGE_THRESHOLD = 0.05;
+        double SEARCH_TASK_HEAP_USAGE_THRESHOLD = 0.005;
+        double SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD = 2.0;
     }
 
     // Static settings
@@ -46,6 +54,54 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    private volatile int nodeDuressNumConsecutiveBreaches;
+    public static final Setting<Integer> SETTING_NODE_DURESS_NUM_CONSECUTIVE_BREACHES = Setting.intSetting(
+        "search_backpressure.node_duress.num_consecutive_breaches",
+        Defaults.NODE_DURESS_NUM_CONSECUTIVE_BREACHES,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    private volatile double nodeDuressCpuThreshold;
+    public static final Setting<Double> SETTING_NODE_DURESS_CPU_THRESHOLD = Setting.doubleSetting(
+        "search_backpressure.node_duress.cpu_threshold",
+        Defaults.NODE_DURESS_CPU_THRESHOLD,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    private volatile double nodeDuressHeapThreshold;
+    public static final Setting<Double> SETTING_NODE_DURESS_HEAP_THRESHOLD = Setting.doubleSetting(
+        "search_backpressure.node_duress.heap_threshold",
+        Defaults.NODE_DURESS_HEAP_THRESHOLD,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    private volatile double searchHeapUsageThreshold;
+    public static final Setting<Double> SETTING_SEARCH_HEAP_USAGE_THRESHOLD = Setting.doubleSetting(
+        "search_backpressure.heap_usage.search_threshold",
+        Defaults.SEARCH_HEAP_USAGE_THRESHOLD,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    private volatile double searchTaskHeapUsageThreshold;
+    public static final Setting<Double> SETTING_SEARCH_TASK_HEAP_USAGE_THRESHOLD = Setting.doubleSetting(
+        "search_backpressure.heap_usage.search_task_threshold",
+        Defaults.SEARCH_TASK_HEAP_USAGE_THRESHOLD,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    private volatile double searchTaskHeapUsageVarianceThreshold;
+    public static final Setting<Double> SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD = Setting.doubleSetting(
+        "search_backpressure.heap_usage.search_task_variance",
+        Defaults.SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
     public SearchBackpressureSettings(Settings settings, ClusterSettings clusterSettings) {
         interval = new TimeValue(SETTING_INTERVAL.get(settings));
 
@@ -54,6 +110,24 @@ public class SearchBackpressureSettings {
 
         enforced = SETTING_ENFORCED.get(settings);
         clusterSettings.addSettingsUpdateConsumer(SETTING_ENFORCED, this::setEnforced);
+
+        nodeDuressNumConsecutiveBreaches = SETTING_NODE_DURESS_NUM_CONSECUTIVE_BREACHES.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_NODE_DURESS_NUM_CONSECUTIVE_BREACHES, this::setNodeDuressNumConsecutiveBreaches);
+
+        nodeDuressCpuThreshold = SETTING_NODE_DURESS_CPU_THRESHOLD.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_NODE_DURESS_CPU_THRESHOLD, this::setNodeDuressCpuThreshold);
+
+        nodeDuressHeapThreshold = SETTING_NODE_DURESS_HEAP_THRESHOLD.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_NODE_DURESS_HEAP_THRESHOLD, this::setNodeDuressHeapThreshold);
+
+        searchHeapUsageThreshold = SETTING_SEARCH_HEAP_USAGE_THRESHOLD.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_HEAP_USAGE_THRESHOLD, this::setSearchHeapUsageThreshold);
+
+        searchTaskHeapUsageThreshold = SETTING_SEARCH_TASK_HEAP_USAGE_THRESHOLD.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_TASK_HEAP_USAGE_THRESHOLD, this::setSearchTaskHeapUsageThreshold);
+
+        searchTaskHeapUsageVarianceThreshold = SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD, this::setSearchTaskHeapUsageVarianceThreshold);
     }
 
     public TimeValue getInterval() {
@@ -74,5 +148,53 @@ public class SearchBackpressureSettings {
 
     public void setEnforced(boolean enforced) {
         this.enforced = enforced;
+    }
+
+    public int getNodeDuressNumConsecutiveBreaches() {
+        return nodeDuressNumConsecutiveBreaches;
+    }
+
+    public void setNodeDuressNumConsecutiveBreaches(int nodeDuressNumConsecutiveBreaches) {
+        this.nodeDuressNumConsecutiveBreaches = nodeDuressNumConsecutiveBreaches;
+    }
+
+    public double getNodeDuressCpuThreshold() {
+        return nodeDuressCpuThreshold;
+    }
+
+    public void setNodeDuressCpuThreshold(double nodeDuressCpuThreshold) {
+        this.nodeDuressCpuThreshold = nodeDuressCpuThreshold;
+    }
+
+    public double getNodeDuressHeapThreshold() {
+        return nodeDuressHeapThreshold;
+    }
+
+    public void setNodeDuressHeapThreshold(double nodeDuressHeapThreshold) {
+        this.nodeDuressHeapThreshold = nodeDuressHeapThreshold;
+    }
+
+    public double getSearchHeapUsageThreshold() {
+        return searchHeapUsageThreshold;
+    }
+
+    public void setSearchHeapUsageThreshold(double searchHeapUsageThreshold) {
+        this.searchHeapUsageThreshold = searchHeapUsageThreshold;
+    }
+
+    public double getSearchTaskHeapUsageThreshold() {
+        return searchTaskHeapUsageThreshold;
+    }
+
+    public void setSearchTaskHeapUsageThreshold(double searchTaskHeapUsageThreshold) {
+        this.searchTaskHeapUsageThreshold = searchTaskHeapUsageThreshold;
+    }
+
+    public double getSearchTaskHeapUsageVarianceThreshold() {
+        return searchTaskHeapUsageVarianceThreshold;
+    }
+
+    public void setSearchTaskHeapUsageVarianceThreshold(double searchTaskHeapUsageVarianceThreshold) {
+        this.searchTaskHeapUsageVarianceThreshold = searchTaskHeapUsageVarianceThreshold;
     }
 }

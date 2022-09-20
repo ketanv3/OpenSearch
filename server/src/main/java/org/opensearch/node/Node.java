@@ -43,6 +43,7 @@ import org.opensearch.indices.replication.SegmentReplicationSourceFactory;
 import org.opensearch.indices.replication.SegmentReplicationTargetService;
 import org.opensearch.indices.replication.SegmentReplicationSourceService;
 import org.opensearch.search.backpressure.SearchBackpressureManager;
+import org.opensearch.search.backpressure.SearchBackpressureSettings;
 import org.opensearch.tasks.TaskResourceTrackingService;
 import org.opensearch.threadpool.RunnableTaskExecutionListener;
 import org.opensearch.index.store.RemoteSegmentStoreDirectoryFactory;
@@ -787,9 +788,13 @@ public class Node implements Closeable {
                 threadPool
             );
 
-            final SearchBackpressureManager searchBackpressureManager = new SearchBackpressureManager(
+            final SearchBackpressureSettings searchBackpressureSettings = new SearchBackpressureSettings(
                 settings,
-                clusterService.getClusterSettings(),
+                clusterService.getClusterSettings()
+            );
+
+            final SearchBackpressureManager searchBackpressureManager = new SearchBackpressureManager(
+                searchBackpressureSettings,
                 taskResourceTrackingService,
                 threadPool
             );

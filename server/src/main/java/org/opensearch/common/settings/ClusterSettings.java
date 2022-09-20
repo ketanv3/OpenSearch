@@ -582,7 +582,13 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 TaskResourceTrackingService.TASK_RESOURCE_TRACKING_ENABLED,
                 TaskManager.TASK_RESOURCE_CONSUMERS_ENABLED,
                 SearchBackpressureSettings.SETTING_ENABLED,
-                SearchBackpressureSettings.SETTING_ENFORCED
+                SearchBackpressureSettings.SETTING_ENFORCED,
+                SearchBackpressureSettings.SETTING_NODE_DURESS_NUM_CONSECUTIVE_BREACHES,
+                SearchBackpressureSettings.SETTING_NODE_DURESS_CPU_THRESHOLD,
+                SearchBackpressureSettings.SETTING_NODE_DURESS_HEAP_THRESHOLD,
+                SearchBackpressureSettings.SETTING_SEARCH_HEAP_USAGE_THRESHOLD,
+                SearchBackpressureSettings.SETTING_SEARCH_TASK_HEAP_USAGE_THRESHOLD,
+                SearchBackpressureSettings.SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD
             )
         )
     );

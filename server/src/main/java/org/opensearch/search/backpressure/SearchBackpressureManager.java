@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 public class SearchBackpressureManager implements Runnable, TaskCompletionListener {
     private static final Logger logger = LogManager.getLogger(SearchBackpressureManager.class);
     private static final OperatingSystemMXBean osMXBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+    private static final long heapSizeBytes = JvmStats.jvmStats().getMem().getHeapMax().getBytes();
 
     private final SearchBackpressureSettings settings;
     private final TaskResourceTrackingService taskResourceTrackingService;
@@ -64,26 +65,30 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     private final DoubleSupplier heapUsageSupplier;
 
     public SearchBackpressureManager(
-        Settings settings,
-        ClusterSettings clusterSettings,
+        SearchBackpressureSettings settings,
         TaskResourceTrackingService taskResourceTrackingService,
         ThreadPool threadPool
     ) {
         this(
             settings,
-            clusterSettings,
             taskResourceTrackingService,
             threadPool,
             System::nanoTime,
             osMXBean::getProcessCpuLoad,
             () -> JvmStats.jvmStats().getMem().getHeapUsedPercent() / 100.0,
-            List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker(System::nanoTime))
+            List.of(
+                new CpuUsageTracker(),
+                new HeapUsageTracker(
+                    () -> (long) (heapSizeBytes * settings.getSearchTaskHeapUsageThreshold()),
+                    settings::getSearchTaskHeapUsageVarianceThreshold
+                ),
+                new ElapsedTimeTracker(System::nanoTime)
+            )
         );
     }
 
     public SearchBackpressureManager(
-        Settings settings,
-        ClusterSettings clusterSettings,
+        SearchBackpressureSettings settings,
         TaskResourceTrackingService taskResourceTrackingService,
         ThreadPool threadPool,
         LongSupplier timeNanosSupplier,
@@ -91,7 +96,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         DoubleSupplier heapUsageSupplier,
         List<ResourceUsageTracker> trackers
     ) {
-        this.settings = new SearchBackpressureSettings(settings, clusterSettings);
+        this.settings = settings;
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
         this.trackers = trackers;
@@ -121,7 +126,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
         // Skip cancellation if the increase in heap usage is not due to search requests.
         long runningTasksHeapUsage = searchShardTasks.stream().mapToLong(task -> task.getTotalResourceStats().getMemoryInBytes()).sum();
-        if (runningTasksHeapUsage < Thresholds.SEARCH_HEAP_USAGE_THRESHOLD_BYTES) {
+        if (runningTasksHeapUsage < heapSizeBytes * getSettings().getSearchHeapUsageThreshold()) {
             return;
         }
 
@@ -156,17 +161,14 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
      * + Heap usage is greater than 80% continuously for 3 observations
      */
     boolean isNodeInDuress() {
-        logger.info(
-            "cpu={}/{} mem={}/{}",
-            cpuUsageSupplier.getAsDouble(), Thresholds.NODE_DURESS_CPU_USAGE_THRESHOLD,
-            heapUsageSupplier.getAsDouble(), Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD
-        );
+        logger.info("cpu={} mem={}", cpuUsageSupplier.getAsDouble(), heapUsageSupplier.getAsDouble());
 
-        boolean isCpuBreached = cpuUsageSupplier.getAsDouble() >= Thresholds.NODE_DURESS_CPU_USAGE_THRESHOLD;
-        boolean isHeapBreached = heapUsageSupplier.getAsDouble() >= Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD;
+        boolean isCpuBreached = cpuUsageSupplier.getAsDouble() >= getSettings().getNodeDuressCpuThreshold();
+        boolean isHeapBreached = heapUsageSupplier.getAsDouble() >= getSettings().getNodeDuressHeapThreshold();
 
-        boolean isCpuConsecutivelyBreached = cpuBreachesStreak.record(isCpuBreached) >= Thresholds.NUM_CONSECUTIVE_BREACHES;
-        boolean isHeapConsecutivelyBreached = heapBreachesStreak.record(isHeapBreached) >= Thresholds.NUM_CONSECUTIVE_BREACHES;
+        int numConsecutiveBreaches = getSettings().getNodeDuressNumConsecutiveBreaches();
+        boolean isCpuConsecutivelyBreached = cpuBreachesStreak.record(isCpuBreached) >= numConsecutiveBreaches;
+        boolean isHeapConsecutivelyBreached = heapBreachesStreak.record(isHeapBreached) >= numConsecutiveBreaches;
 
         return isCpuConsecutivelyBreached || isHeapConsecutivelyBreached;
     }
@@ -265,8 +267,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
                 limitReachedCount.get(),
                 lastCancelledTaskUsage.get()
             ),
-            true,
-            true
+            getSettings().isEnabled(),
+            getSettings().isEnforced()
         );
     }
 }

@@ -14,13 +14,14 @@ import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.util.MovingAverage;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.search.backpressure.TaskCancellation;
-import org.opensearch.search.backpressure.Thresholds;
 import org.opensearch.tasks.Task;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.DoubleSupplier;
+import java.util.function.LongSupplier;
 
 /**
  * HeapUsageTracker evaluates if the task has consumed too much heap than allowed. It also evaluates the task's heap
@@ -28,7 +29,18 @@ import java.util.Optional;
  */
 public class HeapUsageTracker extends ResourceUsageTracker {
     public static final String NAME = "heap_usage_tracker";
+
+    private final LongSupplier searchTaskHeapUsageThresholdBytesSupplier;
+    private final DoubleSupplier searchTaskHeapUsageVarianceThresholdSupplier;
     private final MovingAverage movingAverage = new MovingAverage(100);
+
+    public HeapUsageTracker(
+        LongSupplier searchTaskHeapUsageThresholdBytesSupplier,
+        DoubleSupplier searchTaskHeapUsageVarianceThresholdSupplier
+    ) {
+        this.searchTaskHeapUsageThresholdBytesSupplier = searchTaskHeapUsageThresholdBytesSupplier;
+        this.searchTaskHeapUsageVarianceThresholdSupplier = searchTaskHeapUsageVarianceThresholdSupplier;
+    }
 
     @Override
     public String name() {
@@ -49,9 +61,9 @@ public class HeapUsageTracker extends ResourceUsageTracker {
 
         double taskHeapUsage = task.getTotalResourceStats().getMemoryInBytes();
         double averageHeapUsage = movingAverage.getAverage();
-        double allowedHeapUsage = averageHeapUsage * Thresholds.SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD;
+        double allowedHeapUsage = averageHeapUsage * searchTaskHeapUsageVarianceThresholdSupplier.getAsDouble();
 
-        if (taskHeapUsage < Thresholds.SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES || taskHeapUsage < allowedHeapUsage) {
+        if (taskHeapUsage < searchTaskHeapUsageThresholdBytesSupplier.getAsLong() || taskHeapUsage < allowedHeapUsage) {
             return Optional.empty();
         }
 

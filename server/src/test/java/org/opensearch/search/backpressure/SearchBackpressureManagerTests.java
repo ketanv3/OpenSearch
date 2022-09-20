@@ -18,7 +18,6 @@ import org.opensearch.search.backpressure.stats.CancelledTaskStats;
 import org.opensearch.search.backpressure.stats.SearchBackpressureStats;
 import org.opensearch.search.backpressure.trackers.CpuUsageTracker;
 import org.opensearch.search.backpressure.trackers.ElapsedTimeTracker;
-import org.opensearch.search.backpressure.trackers.HeapUsageTracker;
 import org.opensearch.search.backpressure.trackers.ResourceUsageTracker;
 import org.opensearch.tasks.CancellableTask;
 import org.opensearch.tasks.Task;
@@ -27,7 +26,11 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -54,9 +57,13 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         DoubleSupplier cpuUsageSupplier = cpuUsage::get;
         DoubleSupplier heapUsageSupplier = heapUsage::get;
 
-        SearchBackpressureManager manager = new SearchBackpressureManager(
+        SearchBackpressureSettings settings = new SearchBackpressureSettings(
             Settings.EMPTY,
-            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS),
+            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
+        );
+
+        SearchBackpressureManager manager = new SearchBackpressureManager(
+            settings,
             mockTaskResourceTrackingService,
             mockThreadPool,
             System::nanoTime,
@@ -97,15 +104,19 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             4L, createMockTaskWithResourceStats(CancellableTask.class, 100, 200)  // generic task; not eligible for search backpressure
         )).when(mockTaskResourceTrackingService).getResourceAwareTasks();
 
-        SearchBackpressureManager manager = new SearchBackpressureManager(
+        SearchBackpressureSettings settings = new SearchBackpressureSettings(
             Settings.EMPTY,
-            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS),
+            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
+        );
+
+        SearchBackpressureManager manager = new SearchBackpressureManager(
+            settings,
             mockTaskResourceTrackingService,
             mockThreadPool,
             mockTimeNanosSupplier,
             () -> 0,
             () -> 0,
-            List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker(mockTimeNanosSupplier))
+            List.of(new CpuUsageTracker(), new ElapsedTimeTracker(mockTimeNanosSupplier))
         );
 
         // there are three search shard tasks
@@ -129,9 +140,13 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         LongSupplier mockTimeNanosSupplier = () -> TimeUnit.SECONDS.toNanos(1234);
         ResourceUsageTracker mockTracker = mock(ResourceUsageTracker.class);
 
-        SearchBackpressureManager manager = new SearchBackpressureManager(
+        SearchBackpressureSettings settings = new SearchBackpressureSettings(
             Settings.EMPTY,
-            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS),
+            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
+        );
+
+        SearchBackpressureManager manager = new SearchBackpressureManager(
+            settings,
             mockTaskResourceTrackingService,
             mockThreadPool,
             mockTimeNanosSupplier,
@@ -202,9 +217,13 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             }
         };
 
-        SearchBackpressureManager manager = new SearchBackpressureManager(
+        SearchBackpressureSettings settings = new SearchBackpressureSettings(
             Settings.EMPTY,
-            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS),
+            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
+        );
+
+        SearchBackpressureManager manager = new SearchBackpressureManager(
+            settings,
             mockTaskResourceTrackingService,
             mockThreadPool,
             mockTimeNanosSupplier,
@@ -213,8 +232,6 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             List.of(mockTracker)
         );
 
-        manager.setEnabled(true);
-        manager.setEnforced(true);
         manager.run(); manager.run();  // allowing node to be marked 'in duress' from the next iteration
         assertNull(manager.getLastCancelledTaskUsage());
 
