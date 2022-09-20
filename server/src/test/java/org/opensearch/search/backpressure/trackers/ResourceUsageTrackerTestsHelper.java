@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ResourceUsageTrackerTestsHelper {
 
-    public static Task createMockTaskWithResourceStats(long cpuUsage, long memoryUsage) {
+    public static Task _createMockTaskWithResourceStats(long cpuUsage, long memoryUsage) {
         ThreadResourceInfo threadResourceInfo = new ThreadResourceInfo(
             1L,
             ResourceStatsType.WORKER_STATS,

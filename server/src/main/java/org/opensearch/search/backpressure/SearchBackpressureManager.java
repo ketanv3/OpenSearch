@@ -12,6 +12,7 @@ import com.sun.management.OperatingSystemMXBean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchShardTask;
+import org.opensearch.common.Streak;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -36,9 +37,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.DoubleSupplier;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
@@ -67,22 +68,43 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     private final TaskResourceTrackingService taskResourceTrackingService;
     private final List<ResourceUsageTracker> trackers;
 
-    private final AtomicInteger consecutiveCpuBreaches = new AtomicInteger();
-    private final AtomicInteger consecutiveHeapBreaches = new AtomicInteger();
-    private final AtomicInteger currentIterationCompletedTasks = new AtomicInteger();
+    private final Streak cpuBreachesStreak = new Streak();
+    private final Streak heapBreachesStreak = new Streak();
 
+    private final AtomicLong currentIterationCompletedTasks = new AtomicLong();
     private final AtomicLong cancellationCount = new AtomicLong();
     private final AtomicLong limitReachedCount = new AtomicLong();
     private final AtomicReference<CancelledTaskStats> lastCancelledTaskUsage = new AtomicReference<>();
 
     private final TokenBucket tokenBucket;
+    private final DoubleSupplier cpuUsageSupplier;
+    private final DoubleSupplier heapUsageSupplier;
+
+    public SearchBackpressureManager(
+        Settings settings,
+        ClusterSettings clusterSettings,
+        TaskResourceTrackingService taskResourceTrackingService,
+        ThreadPool threadPool
+    ) {
+        this(
+            settings,
+            clusterSettings,
+            taskResourceTrackingService,
+            threadPool,
+            System::nanoTime,
+            osMXBean::getProcessCpuLoad,
+            () -> JvmStats.jvmStats().getMem().getHeapUsedPercent() / 100.0
+        );
+    }
 
     public SearchBackpressureManager(
         Settings settings,
         ClusterSettings clusterSettings,
         TaskResourceTrackingService taskResourceTrackingService,
         ThreadPool threadPool,
-        LongSupplier timeNanosSupplier
+        LongSupplier timeNanosSupplier,
+        DoubleSupplier cpuUsageSupplier,
+        DoubleSupplier heapUsageSupplier
     ) {
         this.enabled = SEARCH_BACKPRESSURE_ENABLED.get(settings);
         this.enforced = SEARCH_BACKPRESSURE_ENFORCED.get(settings);
@@ -93,6 +115,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         this.taskResourceTrackingService.addTaskCompletionListener(this);
         this.trackers = List.of(new CpuUsageTracker(), new HeapUsageTracker(), new ElapsedTimeTracker(timeNanosSupplier));
         this.tokenBucket = new TokenBucket(3.0, 10.0, timeNanosSupplier);
+        this.cpuUsageSupplier = cpuUsageSupplier;
+        this.heapUsageSupplier = heapUsageSupplier;
 
         threadPool.scheduleWithFixedDelay(this, interval, ThreadPool.Names.SAME);
     }
@@ -147,34 +171,26 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
      * + CPU usage is greater than 70% continuously for 3 observations
      * + Heap usage is greater than 80% continuously for 3 observations
      */
-    private boolean isNodeInDuress() {
-        boolean isCpuBreached = false, isHeapBreached = false;
-
+    boolean isNodeInDuress() {
         logger.info(
             "cpu={}/{} mem={}/{}",
-            osMXBean.getProcessCpuLoad(), Thresholds.NODE_DURESS_CPU_USAGE_THRESHOLD,
-            JvmStats.jvmStats().getMem().getHeapUsedPercent() / 100., Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD
+            cpuUsageSupplier.getAsDouble(), Thresholds.NODE_DURESS_CPU_USAGE_THRESHOLD,
+            heapUsageSupplier.getAsDouble(), Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD
         );
 
-        if (osMXBean.getProcessCpuLoad() > Thresholds.NODE_DURESS_CPU_USAGE_THRESHOLD) {
-            isCpuBreached = consecutiveCpuBreaches.incrementAndGet() >= Thresholds.NUM_CONSECUTIVE_BREACHES;
-        } else {
-            consecutiveCpuBreaches.set(0);
-        }
+        boolean isCpuBreached = cpuUsageSupplier.getAsDouble() > Thresholds.NODE_DURESS_CPU_USAGE_THRESHOLD;
+        boolean isHeapBreached = heapUsageSupplier.getAsDouble() > Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD;
 
-        if (JvmStats.jvmStats().getMem().getHeapUsedPercent() / 100. > Thresholds.NODE_DURESS_HEAP_USAGE_THRESHOLD) {
-            isHeapBreached = consecutiveHeapBreaches.incrementAndGet() >= Thresholds.NUM_CONSECUTIVE_BREACHES;
-        } else {
-            consecutiveHeapBreaches.set(0);
-        }
+        boolean isCpuConsecutivelyBreached = cpuBreachesStreak.record(isCpuBreached) >= Thresholds.NUM_CONSECUTIVE_BREACHES;
+        boolean isHeapConsecutivelyBreached = heapBreachesStreak.record(isHeapBreached) >= Thresholds.NUM_CONSECUTIVE_BREACHES;
 
-        return isCpuBreached || isHeapBreached;
+        return isCpuConsecutivelyBreached || isHeapConsecutivelyBreached;
     }
 
     /**
      * Filters and returns the list of actively running SearchShardTasks.
      */
-    private List<CancellableTask> getSearchShardTasks() {
+    List<CancellableTask> getSearchShardTasks() {
         return taskResourceTrackingService.getResourceAwareTasks().values().stream()
             .filter(task -> task instanceof SearchShardTask)
             .map(task -> (CancellableTask) task)
@@ -186,7 +202,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
      * The TaskCancellation contains a list of reasons (possibly zero) to cancel the task, along with an overall
      * cancellation score. Cancelling a task with a higher score has a better chance of recovering the node from duress.
      */
-    private TaskCancellation getTaskCancellation(CancellableTask task) {
+    TaskCancellation getTaskCancellation(CancellableTask task) {
         List<TaskCancellation.Reason> reasons = trackers.stream()
             .map(tracker -> tracker.cancellationReason(task))
             .filter(Optional::isPresent)
@@ -199,7 +215,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     /**
      * Returns the list of TaskCancellations sorted by descending order of their cancellation score.
      */
-    private List<TaskCancellation> getTaskCancellations(List<CancellableTask> tasks) {
+    List<TaskCancellation> getTaskCancellations(List<CancellableTask> tasks) {
         return tasks.stream()
             .map(this::getTaskCancellation)
             .filter(TaskCancellation::isEligibleForCancellation)

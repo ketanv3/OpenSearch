@@ -791,8 +791,7 @@ public class Node implements Closeable {
                 settings,
                 clusterService.getClusterSettings(),
                 taskResourceTrackingService,
-                threadPool,
-                System::nanoTime
+                threadPool
             );
 
             final RecoverySettings recoverySettings = new RecoverySettings(settings, settingsModule.getClusterSettings());

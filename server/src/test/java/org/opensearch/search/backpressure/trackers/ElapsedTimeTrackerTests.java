@@ -8,18 +8,19 @@
 
 package org.opensearch.search.backpressure.trackers;
 
+import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.search.backpressure.TaskCancellation;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.util.Optional;
 
-import static org.opensearch.search.backpressure.trackers.ResourceUsageTrackerTestsHelper.createMockTaskWithResourceStats;
+import static org.opensearch.search.backpressure.TestHelpers.createMockTaskWithResourceStats;
 
 public class ElapsedTimeTrackerTests extends OpenSearchTestCase {
 
     public void testEligibleForCancellation() {
-        Task task = createMockTaskWithResourceStats(1, 1);
+        Task task = createMockTaskWithResourceStats(SearchShardTask.class, 1, 1);
         ElapsedTimeTracker tracker = new ElapsedTimeTracker(() -> ElapsedTimeTracker.ELAPSED_TIME_NANOS_THRESHOLD + 1);
 
         Optional<TaskCancellation.Reason> reason = tracker.cancellationReason(task);
@@ -30,7 +31,7 @@ public class ElapsedTimeTrackerTests extends OpenSearchTestCase {
     }
 
     public void testNotEligibleForCancellation() {
-        Task task = createMockTaskWithResourceStats(1, 1);
+        Task task = createMockTaskWithResourceStats(SearchShardTask.class, 1, 1);
         ElapsedTimeTracker tracker = new ElapsedTimeTracker(() -> ElapsedTimeTracker.ELAPSED_TIME_NANOS_THRESHOLD - 1);
 
         Optional<TaskCancellation.Reason> reason = tracker.cancellationReason(task);

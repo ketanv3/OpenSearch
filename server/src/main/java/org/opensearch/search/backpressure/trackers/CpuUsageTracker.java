@@ -25,7 +25,7 @@ import java.util.Optional;
  */
 public class CpuUsageTracker extends ResourceUsageTracker {
     public static final String NAME = "cpu_usage_tracker";
-    public static final float CPU_TIME_NANOS_THRESHOLD = 15 * 1000 * 1000;
+    public static final long CPU_TIME_NANOS_THRESHOLD = 15 * 1000 * 1000;
 
     @Override
     public String name() {

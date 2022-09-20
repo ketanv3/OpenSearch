@@ -8,18 +8,19 @@
 
 package org.opensearch.search.backpressure.trackers;
 
+import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.search.backpressure.TaskCancellation;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.util.Optional;
 
-import static org.opensearch.search.backpressure.trackers.ResourceUsageTrackerTestsHelper.createMockTaskWithResourceStats;
+import static org.opensearch.search.backpressure.TestHelpers.createMockTaskWithResourceStats;
 
 public class CpuUsageTrackerTests extends OpenSearchTestCase {
 
     public void testEligibleForCancellation() {
-        Task task = createMockTaskWithResourceStats(30 * 1000 * 1000, 16 * 1024);
+        Task task = createMockTaskWithResourceStats(SearchShardTask.class, 30 * 1000 * 1000, 16 * 1024);
         CpuUsageTracker tracker = new CpuUsageTracker();
 
         Optional<TaskCancellation.Reason> reason = tracker.cancellationReason(task);
@@ -30,7 +31,7 @@ public class CpuUsageTrackerTests extends OpenSearchTestCase {
     }
 
     public void testNotEligibleForCancellation() {
-        Task task = createMockTaskWithResourceStats(10 * 1000 * 1000, 16 * 1024);
+        Task task = createMockTaskWithResourceStats(SearchShardTask.class, 10 * 1000 * 1000, 16 * 1024);
         CpuUsageTracker tracker = new CpuUsageTracker();
 
         Optional<TaskCancellation.Reason> reason = tracker.cancellationReason(task);
