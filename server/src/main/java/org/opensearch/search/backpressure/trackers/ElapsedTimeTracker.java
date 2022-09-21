@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 
 /**
@@ -27,12 +26,13 @@ import java.util.function.LongSupplier;
  */
 public class ElapsedTimeTracker extends ResourceUsageTracker {
     public static final String NAME = "elapsed_time_tracker";
-    public static final long ELAPSED_TIME_NANOS_THRESHOLD = TimeUnit.SECONDS.toNanos(30);
 
     private final LongSupplier timeNanosSupplier;
+    private final LongSupplier elapsedTimeNanosThresholdSupplier;
 
-    public ElapsedTimeTracker(LongSupplier timeNanosSupplier) {
+    public ElapsedTimeTracker(LongSupplier timeNanosSupplier, LongSupplier elapsedTimeNanosThresholdSupplier) {
         this.timeNanosSupplier = timeNanosSupplier;
+        this.elapsedTimeNanosThresholdSupplier = elapsedTimeNanosThresholdSupplier;
     }
 
     @Override
@@ -47,7 +47,7 @@ public class ElapsedTimeTracker extends ResourceUsageTracker {
 
     @Override
     public Optional<TaskCancellation.Reason> cancellationReason(Task task) {
-        if (timeNanosSupplier.getAsLong() - task.getStartTimeNanos() < ELAPSED_TIME_NANOS_THRESHOLD) {
+        if (timeNanosSupplier.getAsLong() - task.getStartTimeNanos() < elapsedTimeNanosThresholdSupplier.getAsLong()) {
             return Optional.empty();
         }
 

@@ -19,13 +19,19 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.LongSupplier;
 
 /**
  * CpuUsageTracker evaluates if the task has consumed too many CPU cycles than allowed.
  */
 public class CpuUsageTracker extends ResourceUsageTracker {
     public static final String NAME = "cpu_usage_tracker";
-    public static final long CPU_TIME_NANOS_THRESHOLD = 15 * 1000 * 1000;
+
+    private final LongSupplier cpuTimeNanosThresholdSupplier;
+
+    public CpuUsageTracker(LongSupplier cpuTimeNanosThresholdSupplier) {
+        this.cpuTimeNanosThresholdSupplier = cpuTimeNanosThresholdSupplier;
+    }
 
     @Override
     public String name() {
@@ -39,7 +45,7 @@ public class CpuUsageTracker extends ResourceUsageTracker {
 
     @Override
     public Optional<TaskCancellation.Reason> cancellationReason(Task task) {
-        if (task.getTotalResourceStats().getCpuTimeInNanos() < CPU_TIME_NANOS_THRESHOLD) {
+        if (task.getTotalResourceStats().getCpuTimeInNanos() < cpuTimeNanosThresholdSupplier.getAsLong()) {
             return Optional.empty();
         }
 

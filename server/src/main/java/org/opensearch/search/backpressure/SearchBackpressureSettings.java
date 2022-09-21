@@ -15,7 +15,7 @@ import org.opensearch.common.unit.TimeValue;
 
 public class SearchBackpressureSettings {
     public interface Defaults {
-        long INTERVAL = 1000; // in milliseconds
+        long INTERVAL = 1000;
 
         boolean ENABLED = true;
         boolean ENFORCED = true;
@@ -27,6 +27,9 @@ public class SearchBackpressureSettings {
         double SEARCH_HEAP_USAGE_THRESHOLD = 0.05;
         double SEARCH_TASK_HEAP_USAGE_THRESHOLD = 0.005;
         double SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD = 2.0;
+
+        long SEARCH_TASK_CPU_TIME_THRESHOLD = 15;
+        long SEARCH_TASK_ELAPSED_TIME_THRESHOLD = 30000;
     }
 
     // Static settings
@@ -58,6 +61,7 @@ public class SearchBackpressureSettings {
     public static final Setting<Integer> SETTING_NODE_DURESS_NUM_CONSECUTIVE_BREACHES = Setting.intSetting(
         "search_backpressure.node_duress.num_consecutive_breaches",
         Defaults.NODE_DURESS_NUM_CONSECUTIVE_BREACHES,
+        1,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
@@ -66,6 +70,7 @@ public class SearchBackpressureSettings {
     public static final Setting<Double> SETTING_NODE_DURESS_CPU_THRESHOLD = Setting.doubleSetting(
         "search_backpressure.node_duress.cpu_threshold",
         Defaults.NODE_DURESS_CPU_THRESHOLD,
+        0.0,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
@@ -74,30 +79,52 @@ public class SearchBackpressureSettings {
     public static final Setting<Double> SETTING_NODE_DURESS_HEAP_THRESHOLD = Setting.doubleSetting(
         "search_backpressure.node_duress.heap_threshold",
         Defaults.NODE_DURESS_HEAP_THRESHOLD,
+        0.0,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
 
     private volatile double searchHeapUsageThreshold;
     public static final Setting<Double> SETTING_SEARCH_HEAP_USAGE_THRESHOLD = Setting.doubleSetting(
-        "search_backpressure.heap_usage.search_threshold",
+        "search_backpressure.search_heap_usage_threshold",
         Defaults.SEARCH_HEAP_USAGE_THRESHOLD,
+        0.0,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
 
     private volatile double searchTaskHeapUsageThreshold;
     public static final Setting<Double> SETTING_SEARCH_TASK_HEAP_USAGE_THRESHOLD = Setting.doubleSetting(
-        "search_backpressure.heap_usage.search_task_threshold",
+        "search_backpressure.search_task_heap_usage_threshold",
         Defaults.SEARCH_TASK_HEAP_USAGE_THRESHOLD,
+        0.0,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
 
     private volatile double searchTaskHeapUsageVarianceThreshold;
     public static final Setting<Double> SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD = Setting.doubleSetting(
-        "search_backpressure.heap_usage.search_task_variance",
+        "search_backpressure.search_task_heap_usage_variance",
         Defaults.SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD,
+        0.0,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    private volatile long searchTaskCpuTimeThreshold;
+    public static final Setting<Long> SETTING_SEARCH_TASK_CPU_TIME_THRESHOLD = Setting.longSetting(
+        "search_backpressure.search_task_cpu_time_threshold",
+        Defaults.SEARCH_TASK_CPU_TIME_THRESHOLD,
+        0,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
+
+    private volatile long searchTaskElapsedTimeThreshold;
+    public static final Setting<Long> SETTING_SEARCH_TASK_ELAPSED_TIME_THRESHOLD = Setting.longSetting(
+        "search_backpressure.search_task_elapsed_time_threshold",
+        Defaults.SEARCH_TASK_ELAPSED_TIME_THRESHOLD,
+        0,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
@@ -128,6 +155,12 @@ public class SearchBackpressureSettings {
 
         searchTaskHeapUsageVarianceThreshold = SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD.get(settings);
         clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD, this::setSearchTaskHeapUsageVarianceThreshold);
+
+        searchTaskCpuTimeThreshold = SETTING_SEARCH_TASK_CPU_TIME_THRESHOLD.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_TASK_CPU_TIME_THRESHOLD, this::setSearchTaskCpuTimeThreshold);
+
+        searchTaskElapsedTimeThreshold = SETTING_SEARCH_TASK_ELAPSED_TIME_THRESHOLD.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_TASK_ELAPSED_TIME_THRESHOLD, this::setSearchTaskElapsedTimeThreshold);
     }
 
     public TimeValue getInterval() {
@@ -196,5 +229,21 @@ public class SearchBackpressureSettings {
 
     public void setSearchTaskHeapUsageVarianceThreshold(double searchTaskHeapUsageVarianceThreshold) {
         this.searchTaskHeapUsageVarianceThreshold = searchTaskHeapUsageVarianceThreshold;
+    }
+
+    public long getSearchTaskCpuTimeThreshold() {
+        return searchTaskCpuTimeThreshold;
+    }
+
+    public void setSearchTaskCpuTimeThreshold(long searchTaskCpuTimeThreshold) {
+        this.searchTaskCpuTimeThreshold = searchTaskCpuTimeThreshold;
+    }
+
+    public long getSearchTaskElapsedTimeThreshold() {
+        return searchTaskElapsedTimeThreshold;
+    }
+
+    public void setSearchTaskElapsedTimeThreshold(long searchTaskElapsedTimeThreshold) {
+        this.searchTaskElapsedTimeThreshold = searchTaskElapsedTimeThreshold;
     }
 }

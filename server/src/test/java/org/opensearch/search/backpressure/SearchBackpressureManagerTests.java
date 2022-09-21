@@ -44,7 +44,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.opensearch.search.backpressure.TestHelpers.createMockTaskWithResourceStats;
 import static org.opensearch.search.backpressure.Thresholds.SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES;
-import static org.opensearch.search.backpressure.trackers.CpuUsageTracker.CPU_TIME_NANOS_THRESHOLD;
 
 public class SearchBackpressureManagerTests extends OpenSearchTestCase {
 
@@ -96,10 +95,12 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         TaskResourceTrackingService mockTaskResourceTrackingService = mock(TaskResourceTrackingService.class);
         ThreadPool mockThreadPool = mock(ThreadPool.class);
         LongSupplier mockTimeNanosSupplier = () -> TimeUnit.SECONDS.toNanos(1234);
+        long cpuTimeThreshold = 100;
+        long elapsedTimeThreshold = 500;
 
         doReturn(Map.of(
-            1L, createMockTaskWithResourceStats(SearchShardTask.class, CPU_TIME_NANOS_THRESHOLD + 1, 0, mockTimeNanosSupplier.getAsLong()),
-            2L, createMockTaskWithResourceStats(SearchShardTask.class, CPU_TIME_NANOS_THRESHOLD + 1, 0, mockTimeNanosSupplier.getAsLong() - ElapsedTimeTracker.ELAPSED_TIME_NANOS_THRESHOLD),
+            1L, createMockTaskWithResourceStats(SearchShardTask.class, cpuTimeThreshold + 1, 0, mockTimeNanosSupplier.getAsLong()),
+            2L, createMockTaskWithResourceStats(SearchShardTask.class, cpuTimeThreshold + 1, 0, mockTimeNanosSupplier.getAsLong() - elapsedTimeThreshold),
             3L, createMockTaskWithResourceStats(SearchShardTask.class, 0, 0, mockTimeNanosSupplier.getAsLong()),
             4L, createMockTaskWithResourceStats(CancellableTask.class, 100, 200)  // generic task; not eligible for search backpressure
         )).when(mockTaskResourceTrackingService).getResourceAwareTasks();
@@ -116,7 +117,10 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             mockTimeNanosSupplier,
             () -> 0,
             () -> 0,
-            List.of(new CpuUsageTracker(), new ElapsedTimeTracker(mockTimeNanosSupplier))
+            List.of(
+                new CpuUsageTracker(() -> cpuTimeThreshold),
+                new ElapsedTimeTracker(mockTimeNanosSupplier, () -> elapsedTimeThreshold)
+            )
         );
 
         // there are three search shard tasks

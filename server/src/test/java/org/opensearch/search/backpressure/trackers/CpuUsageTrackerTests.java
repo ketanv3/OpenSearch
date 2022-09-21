@@ -20,8 +20,8 @@ import static org.opensearch.search.backpressure.TestHelpers.createMockTaskWithR
 public class CpuUsageTrackerTests extends OpenSearchTestCase {
 
     public void testEligibleForCancellation() {
-        Task task = createMockTaskWithResourceStats(SearchShardTask.class, 30 * 1000 * 1000, 16 * 1024);
-        CpuUsageTracker tracker = new CpuUsageTracker();
+        Task task = createMockTaskWithResourceStats(SearchShardTask.class, 200, 200);
+        CpuUsageTracker tracker = new CpuUsageTracker(() -> 100);
 
         Optional<TaskCancellation.Reason> reason = tracker.cancellationReason(task);
         assertTrue(reason.isPresent());
@@ -31,8 +31,8 @@ public class CpuUsageTrackerTests extends OpenSearchTestCase {
     }
 
     public void testNotEligibleForCancellation() {
-        Task task = createMockTaskWithResourceStats(SearchShardTask.class, 10 * 1000 * 1000, 16 * 1024);
-        CpuUsageTracker tracker = new CpuUsageTracker();
+        Task task = createMockTaskWithResourceStats(SearchShardTask.class, 50, 200);
+        CpuUsageTracker tracker = new CpuUsageTracker(() -> 100);
 
         Optional<TaskCancellation.Reason> reason = tracker.cancellationReason(task);
         assertFalse(reason.isPresent());

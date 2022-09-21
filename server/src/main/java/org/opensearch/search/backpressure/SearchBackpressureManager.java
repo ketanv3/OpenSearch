@@ -77,12 +77,12 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             osMXBean::getProcessCpuLoad,
             () -> JvmStats.jvmStats().getMem().getHeapUsedPercent() / 100.0,
             List.of(
-                new CpuUsageTracker(),
+                new CpuUsageTracker(() -> TimeUnit.MILLISECONDS.toNanos(settings.getSearchTaskCpuTimeThreshold())),
                 new HeapUsageTracker(
                     () -> (long) (heapSizeBytes * settings.getSearchTaskHeapUsageThreshold()),
                     settings::getSearchTaskHeapUsageVarianceThreshold
                 ),
-                new ElapsedTimeTracker(System::nanoTime)
+                new ElapsedTimeTracker(System::nanoTime, () -> TimeUnit.MILLISECONDS.toNanos(settings.getSearchTaskElapsedTimeThreshold()))
             )
         );
     }

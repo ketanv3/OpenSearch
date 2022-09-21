@@ -22,9 +22,9 @@ public class TaskCancellationTests extends OpenSearchTestCase {
 
     public void testTaskCancellation() {
         SearchShardTask mockTask = new SearchShardTask(123L, "", "", "", null, Collections.emptyMap());
-        CpuUsageTracker mockCpuUsageTracker = new CpuUsageTracker();
+        CpuUsageTracker mockCpuUsageTracker = new CpuUsageTracker(() -> 0);
         HeapUsageTracker mockHeapUsageTracker = new HeapUsageTracker(() -> 0, () -> 0.0);
-        ElapsedTimeTracker mockElapsedTimeTracker = new ElapsedTimeTracker(System::nanoTime);
+        ElapsedTimeTracker mockElapsedTimeTracker = new ElapsedTimeTracker(() -> 0, () -> 0);
 
         List<TaskCancellation.Reason> reasons = new ArrayList<>();
         TaskCancellation taskCancellation = new TaskCancellation(mockTask, reasons, System::nanoTime);

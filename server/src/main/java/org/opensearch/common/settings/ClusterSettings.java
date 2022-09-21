@@ -588,7 +588,9 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 SearchBackpressureSettings.SETTING_NODE_DURESS_HEAP_THRESHOLD,
                 SearchBackpressureSettings.SETTING_SEARCH_HEAP_USAGE_THRESHOLD,
                 SearchBackpressureSettings.SETTING_SEARCH_TASK_HEAP_USAGE_THRESHOLD,
-                SearchBackpressureSettings.SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD
+                SearchBackpressureSettings.SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD,
+                SearchBackpressureSettings.SETTING_SEARCH_TASK_CPU_TIME_THRESHOLD,
+                SearchBackpressureSettings.SETTING_SEARCH_TASK_ELAPSED_TIME_THRESHOLD
             )
         )
     );
