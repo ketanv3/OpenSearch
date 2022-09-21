@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 
 public class TokenBucketTests extends OpenSearchTestCase {
+
     public void testTokenBucket() {
         AtomicLong mockTimeNanos = new AtomicLong();
         LongSupplier mockTimeNanosSupplier = mockTimeNanos::get;

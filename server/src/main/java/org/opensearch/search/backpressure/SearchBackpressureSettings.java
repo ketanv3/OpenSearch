@@ -191,7 +191,7 @@ public class SearchBackpressureSettings {
     );
 
     /**
-     * Defines the CPU usage threshold (in nanos) for an individual task before it is considered for cancellation.
+     * Defines the CPU usage threshold (in millis) for an individual task before it is considered for cancellation.
      */
     private volatile long searchTaskCpuTimeThreshold;
     public static final Setting<Long> SETTING_SEARCH_TASK_CPU_TIME_THRESHOLD = Setting.longSetting(
@@ -203,7 +203,7 @@ public class SearchBackpressureSettings {
     );
 
     /**
-     * Defines the elapsed time threshold (in nanos) for an individual task before it is considered for cancellation.
+     * Defines the elapsed time threshold (in millis) for an individual task before it is considered for cancellation.
      */
     private volatile long searchTaskElapsedTimeThreshold;
     public static final Setting<Long> SETTING_SEARCH_TASK_ELAPSED_TIME_THRESHOLD = Setting.longSetting(

@@ -18,7 +18,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * ResourceUsageTracker is used to track completions and cancellations of search-related tasks.
+ * ResourceUsageTracker is used to track completions and cancellations of search related tasks.
  */
 public abstract class ResourceUsageTracker {
     /**
@@ -40,7 +40,7 @@ public abstract class ResourceUsageTracker {
     public abstract String name();
 
     /**
-     * Notifies the tracker to update its state when the task execution completes.
+     * Notifies the tracker to update its state when a task execution completes.
      */
     public abstract void update(Task task);
 

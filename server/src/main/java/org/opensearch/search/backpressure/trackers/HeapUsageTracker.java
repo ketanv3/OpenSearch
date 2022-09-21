@@ -24,8 +24,8 @@ import java.util.function.DoubleSupplier;
 import java.util.function.LongSupplier;
 
 /**
- * HeapUsageTracker evaluates if the task has consumed too much heap than allowed. It also evaluates the task's heap
- * consumption against a historical moving average of previously completed tasks.
+ * HeapUsageTracker evaluates if the task has consumed too much heap than allowed.
+ * It also compares the task's heap usage against a historical moving average of previously completed tasks.
  */
 public class HeapUsageTracker extends ResourceUsageTracker {
     public static final String NAME = "heap_usage_tracker";

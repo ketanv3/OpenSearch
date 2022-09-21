@@ -79,7 +79,7 @@ public class TaskCancellation implements Comparable<TaskCancellation> {
     }
 
     /**
-     * Reason represents the cancellation reason for a task.
+     * Represents the cancellation reason for a task.
      */
     public static class Reason {
         private final ResourceUsageTracker tracker;

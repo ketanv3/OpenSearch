@@ -72,21 +72,21 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             Collections.emptyList()
         );
 
-        // node not in duress
+        // Node not in duress.
         cpuUsage.set(0.0);
         heapUsage.set(0.0);
         assertFalse(manager.isNodeInDuress());
 
-        // node in duress; but not for many consecutive data points
+        // Node in duress; but not for many consecutive data points.
         cpuUsage.set(1.0);
         heapUsage.set(1.0);
         assertFalse(manager.isNodeInDuress());
 
-        // node in duress for consecutive data points
+        // Node in duress for consecutive data points.
         assertFalse(manager.isNodeInDuress());
         assertTrue(manager.isNodeInDuress());
 
-        // node not in duress anymore
+        // Node not in duress anymore.
         cpuUsage.set(0.0);
         heapUsage.set(0.0);
         assertFalse(manager.isNodeInDuress());
@@ -124,15 +124,15 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             )
         );
 
-        // there are three search shard tasks
+        // There are three search shard tasks.
         List<CancellableTask> searchShardTasks = manager.getSearchShardTasks();
         assertEquals(3, searchShardTasks.size());
 
-        // but only two of them are breaching thresholds
+        // But only two of them are breaching thresholds.
         List<TaskCancellation> taskCancellations = manager.getTaskCancellations(searchShardTasks);
         assertEquals(2, taskCancellations.size());
 
-        // task cancellations are sorted in reverse order of the score
+        // Task cancellations are sorted in reverse order of the score.
         assertEquals(2, taskCancellations.get(0).getReasons().size());
         assertEquals(1, taskCancellations.get(1).getReasons().size());
         assertEquals(2, taskCancellations.get(0).totalCancellationScore());
@@ -240,12 +240,11 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         manager.run(); manager.run();  // allowing node to be marked 'in duress' from the next iteration
         assertNull(manager.getLastCancelledTaskUsage());
 
-        // Mocking 'settings' with predictable value for task memory usage so that cancellation logic doesn't get skipped.
+        // Mocking 'settings' with predictable searchHeapThresholdBytes so that cancellation logic doesn't get skipped.
         long taskHeapUsageBytes = 500;
         when(settings.getSearchHeapThresholdBytes()).thenReturn(taskHeapUsageBytes);
 
-        // Create some active tasks, some of them with high resource usage.
-        // 60 low resource usage tasks + 15 high resource usage tasks.
+        // Create a mix of low and high resource usage tasks (60 low + 15 high resource usage tasks).
         Map<Long, Task> activeTasks = new HashMap<>();
         for (long i = 0; i < 75; i++) {
             if (i % 5 == 0) {
@@ -261,7 +260,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         when(settings.getCancellationRate()).thenReturn(3.0 / TimeUnit.SECONDS.toNanos(1));
         when(settings.getCancellationBurst()).thenReturn(10.0);
 
-        // There are 15 tasks eligible for cancellation, but only 10 will be cancelled (burst limit).
+        // There are 15 tasks eligible for cancellation but only 10 will be cancelled (burst limit).
         manager.run();
         assertEquals(10, manager.getCancellationCount());
         assertEquals(1, manager.getLimitReachedCount());
@@ -288,7 +287,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         assertEquals(15, manager.getCancellationCount());
         assertEquals(3, manager.getLimitReachedCount());  // no more tasks to cancel; limit not reached
 
-        // Verify search backpressure stats
+        // Verify search backpressure stats.
         SearchBackpressureStats expectedStats = new SearchBackpressureStats(
             Map.of("mock_tracker", new MockStats()),
             new CancellationStats(
