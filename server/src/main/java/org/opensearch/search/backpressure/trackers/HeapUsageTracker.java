@@ -34,10 +34,7 @@ public class HeapUsageTracker extends ResourceUsageTracker {
     private final DoubleSupplier searchTaskHeapVarianceThresholdSupplier;
     private final MovingAverage movingAverage = new MovingAverage(100);
 
-    public HeapUsageTracker(
-        LongSupplier searchTaskHeapThresholdBytesSupplier,
-        DoubleSupplier searchTaskHeapVarianceThresholdSupplier
-    ) {
+    public HeapUsageTracker(LongSupplier searchTaskHeapThresholdBytesSupplier, DoubleSupplier searchTaskHeapVarianceThresholdSupplier) {
         this.searchTaskHeapThresholdBytesSupplier = searchTaskHeapThresholdBytesSupplier;
         this.searchTaskHeapVarianceThresholdSupplier = searchTaskHeapVarianceThresholdSupplier;
     }
@@ -94,8 +91,7 @@ public class HeapUsageTracker extends ResourceUsageTracker {
 
         @Override
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-            return builder
-                .startObject()
+            return builder.startObject()
                 .humanReadableField("current_max_bytes", "current_max", new ByteSizeValue(currentMax))
                 .humanReadableField("current_avg_bytes", "current_avg", new ByteSizeValue(currentAvg))
                 .humanReadableField("rolling_avg_bytes", "rolling_avg", new ByteSizeValue(rollingAvg))

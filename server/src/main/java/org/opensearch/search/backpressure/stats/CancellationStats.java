@@ -27,7 +27,12 @@ public class CancellationStats implements ToXContentObject, Writeable {
     private final long limitReachedCount;
     private final CancelledTaskStats lastCancelledTaskStats;
 
-    public CancellationStats(long count, Map<String, Long> countBreakup, long limitReachedCount, CancelledTaskStats lastCancelledTaskStats) {
+    public CancellationStats(
+        long count,
+        Map<String, Long> countBreakup,
+        long limitReachedCount,
+        CancelledTaskStats lastCancelledTaskStats
+    ) {
         this.count = count;
         this.countBreakup = countBreakup;
         this.limitReachedCount = limitReachedCount;
@@ -45,8 +50,7 @@ public class CancellationStats implements ToXContentObject, Writeable {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        return builder
-            .startObject()
+        return builder.startObject()
             .field("cancellation_count", count)
             .field("cancellation_breakup", countBreakup)
             .field("cancellation_limit_reached_count", limitReachedCount)
@@ -67,7 +71,10 @@ public class CancellationStats implements ToXContentObject, Writeable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         CancellationStats that = (CancellationStats) o;
-        return count == that.count && limitReachedCount == that.limitReachedCount && countBreakup.equals(that.countBreakup) && Objects.equals(lastCancelledTaskStats, that.lastCancelledTaskStats);
+        return count == that.count
+            && limitReachedCount == that.limitReachedCount
+            && countBreakup.equals(that.countBreakup)
+            && Objects.equals(lastCancelledTaskStats, that.lastCancelledTaskStats);
     }
 
     @Override

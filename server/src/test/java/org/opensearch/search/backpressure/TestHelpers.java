@@ -25,7 +25,12 @@ public class TestHelpers extends OpenSearchTestCase {
         return createMockTaskWithResourceStats(type, cpuUsage, heapUsage, 0);
     }
 
-    public static <T extends CancellableTask> T createMockTaskWithResourceStats(Class<T> type, long cpuUsage, long heapUsage, long startTimeNanos) {
+    public static <T extends CancellableTask> T createMockTaskWithResourceStats(
+        Class<T> type,
+        long cpuUsage,
+        long heapUsage,
+        long startTimeNanos
+    ) {
         T task = mock(type);
         when(task.getTotalResourceStats()).thenReturn(new TaskResourceUsage(cpuUsage, heapUsage));
         when(task.getStartTimeNanos()).thenReturn(startTimeNanos);

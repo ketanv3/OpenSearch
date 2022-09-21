@@ -58,7 +58,7 @@ public class HeapUsageTrackerTests extends OpenSearchTestCase {
         reason = tracker.cancellationReason(task);
         assertFalse(reason.isPresent());
 
-        // Task with heap usage between searchTaskHeapThresholdBytes (inclusive) and (moving average * variance) (exclusive) should not be cancelled.
+        // Task with heap usage between [searchTaskHeapThresholdBytes, moving average * variance) should not be cancelled.
         double allowedHeapUsage = 99.0 * 2.0;
         task = createMockTaskWithResourceStats(SearchShardTask.class, 1, randomLongBetween(99, (long) allowedHeapUsage - 1));
         reason = tracker.cancellationReason(task);

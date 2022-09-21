@@ -40,8 +40,7 @@ public class CancelledTaskStats implements ToXContentObject, Writeable {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        return builder
-            .startObject()
+        return builder.startObject()
             .humanReadableField("cpu_usage_nanos", "cpu_usage", new TimeValue(cpuUsageNanos, TimeUnit.NANOSECONDS))
             .humanReadableField("heap_usage_bytes", "heap_usage", new ByteSizeValue(heapUsageBytes))
             .humanReadableField("elapsed_time_nanos", "elapsed_time", new TimeValue(elapsedTimeNanos, TimeUnit.NANOSECONDS))

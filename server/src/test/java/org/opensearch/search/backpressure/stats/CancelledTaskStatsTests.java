@@ -23,10 +23,6 @@ public class CancelledTaskStatsTests extends AbstractWireSerializingTestCase<Can
     }
 
     public static CancelledTaskStats randomInstance() {
-        return new CancelledTaskStats(
-            randomNonNegativeLong(),
-            randomNonNegativeLong(),
-            randomNonNegativeLong()
-        );
+        return new CancelledTaskStats(randomNonNegativeLong(), randomNonNegativeLong(), randomNonNegativeLong());
     }
 }

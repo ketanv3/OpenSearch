@@ -25,9 +25,14 @@ public class SearchBackpressureStatsTests extends AbstractWireSerializingTestCas
     @Override
     protected SearchBackpressureStats createTestInstance() {
         return new SearchBackpressureStats(
-            new MapBuilder<String, ResourceUsageTracker.Stats>()
-                .put(CpuUsageTracker.NAME, new CpuUsageTracker.Stats(randomNonNegativeLong(), randomNonNegativeLong()))
-                .put(HeapUsageTracker.NAME, new HeapUsageTracker.Stats(randomNonNegativeLong(), randomNonNegativeLong(), randomNonNegativeLong()))
+            new MapBuilder<String, ResourceUsageTracker.Stats>().put(
+                CpuUsageTracker.NAME,
+                new CpuUsageTracker.Stats(randomNonNegativeLong(), randomNonNegativeLong())
+            )
+                .put(
+                    HeapUsageTracker.NAME,
+                    new HeapUsageTracker.Stats(randomNonNegativeLong(), randomNonNegativeLong(), randomNonNegativeLong())
+                )
                 .put(ElapsedTimeTracker.NAME, new ElapsedTimeTracker.Stats(randomNonNegativeLong(), randomNonNegativeLong()))
                 .immutableMap(),
             CancellationStatsTests.randomInstance(),

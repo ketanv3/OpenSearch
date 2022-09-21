@@ -99,12 +99,23 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         long cpuTimeThreshold = 100;
         long elapsedTimeThreshold = 500;
 
-        doReturn(Map.of(
-            1L, createMockTaskWithResourceStats(SearchShardTask.class, cpuTimeThreshold + 1, 0, mockTimeNanosSupplier.getAsLong()),
-            2L, createMockTaskWithResourceStats(SearchShardTask.class, cpuTimeThreshold + 1, 0, mockTimeNanosSupplier.getAsLong() - elapsedTimeThreshold),
-            3L, createMockTaskWithResourceStats(SearchShardTask.class, 0, 0, mockTimeNanosSupplier.getAsLong()),
-            4L, createMockTaskWithResourceStats(CancellableTask.class, 100, 200)  // generic task; not eligible for search backpressure
-        )).when(mockTaskResourceTrackingService).getResourceAwareTasks();
+        doReturn(
+            Map.of(
+                1L,
+                createMockTaskWithResourceStats(SearchShardTask.class, cpuTimeThreshold + 1, 0, mockTimeNanosSupplier.getAsLong()),
+                2L,
+                createMockTaskWithResourceStats(
+                    SearchShardTask.class,
+                    cpuTimeThreshold + 1,
+                    0,
+                    mockTimeNanosSupplier.getAsLong() - elapsedTimeThreshold
+                ),
+                3L,
+                createMockTaskWithResourceStats(SearchShardTask.class, 0, 0, mockTimeNanosSupplier.getAsLong()),
+                4L,
+                createMockTaskWithResourceStats(CancellableTask.class, 100, 200)  // generic task; not eligible for search backpressure
+            )
+        ).when(mockTaskResourceTrackingService).getResourceAwareTasks();
 
         SearchBackpressureSettings settings = new SearchBackpressureSettings(
             Settings.EMPTY,
@@ -118,10 +129,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             mockTimeNanosSupplier,
             () -> 0,
             () -> 0,
-            List.of(
-                new CpuUsageTracker(() -> cpuTimeThreshold),
-                new ElapsedTimeTracker(mockTimeNanosSupplier, () -> elapsedTimeThreshold)
-            )
+            List.of(new CpuUsageTracker(() -> cpuTimeThreshold), new ElapsedTimeTracker(mockTimeNanosSupplier, () -> elapsedTimeThreshold))
         );
 
         // There are three search shard tasks.
@@ -182,8 +190,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             }
 
             @Override
-            public void writeTo(StreamOutput out) throws IOException {
-            }
+            public void writeTo(StreamOutput out) throws IOException {}
 
             @Override
             public boolean equals(Object o) {
@@ -204,8 +211,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             }
 
             @Override
-            public void update(Task task) {
-            }
+            public void update(Task task) {}
 
             @Override
             public Optional<TaskCancellation.Reason> cancellationReason(Task task) {
@@ -222,10 +228,9 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             }
         };
 
-        SearchBackpressureSettings settings = spy(new SearchBackpressureSettings(
-            Settings.EMPTY,
-            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
-        ));
+        SearchBackpressureSettings settings = spy(
+            new SearchBackpressureSettings(Settings.EMPTY, new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS))
+        );
 
         // Mocking 'settings' with predictable rate limiting thresholds.
         when(settings.getCancellationRatio()).thenReturn(0.1);
@@ -242,7 +247,8 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             List.of(mockTracker)
         );
 
-        manager.run(); manager.run();  // allowing node to be marked 'in duress' from the next iteration
+        manager.run();
+        manager.run();  // allowing node to be marked 'in duress' from the next iteration
         assertNull(manager.getLastCancelledTaskUsage());
 
         // Mocking 'settings' with predictable searchHeapThresholdBytes so that cancellation logic doesn't get skipped.
@@ -290,12 +296,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         // Verify search backpressure stats.
         SearchBackpressureStats expectedStats = new SearchBackpressureStats(
             Map.of("mock_tracker", new MockStats()),
-            new CancellationStats(
-                15,
-                Map.of("mock_tracker", 15L),
-                3,
-                new CancelledTaskStats(500, taskHeapUsageBytes, 1000000000)
-            ),
+            new CancellationStats(15, Map.of("mock_tracker", 15L), 3, new CancelledTaskStats(500, taskHeapUsageBytes, 1000000000)),
             true,
             true
         );

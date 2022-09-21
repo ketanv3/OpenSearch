@@ -92,10 +92,8 @@ import org.opensearch.persistent.PersistentTasksCustomMetadata;
 import org.opensearch.persistent.PersistentTasksNodeService;
 import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.script.ScriptMetadata;
-import org.opensearch.search.backpressure.SearchBackpressureManager;
 import org.opensearch.snapshots.SnapshotsInfoService;
 import org.opensearch.tasks.Task;
-import org.opensearch.tasks.TaskResourceTrackingService;
 import org.opensearch.tasks.TaskResultsService;
 
 import java.util.ArrayList;

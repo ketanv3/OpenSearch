@@ -74,8 +74,7 @@ public class CpuUsageTracker extends ResourceUsageTracker {
 
         @Override
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-            return builder
-                .startObject()
+            return builder.startObject()
                 .humanReadableField("current_max_nanos", "current_max", new TimeValue(currentMax))
                 .humanReadableField("current_avg_nanos", "current_avg", new TimeValue(currentAvg))
                 .endObject();

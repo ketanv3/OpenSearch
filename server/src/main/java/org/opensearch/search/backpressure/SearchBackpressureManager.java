@@ -77,10 +77,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             () -> JvmStats.jvmStats().getMem().getHeapUsedPercent() / 100.0,
             List.of(
                 new CpuUsageTracker(() -> TimeUnit.MILLISECONDS.toNanos(settings.getSearchTaskCpuTimeThreshold())),
-                new HeapUsageTracker(
-                    settings::getSearchTaskHeapThresholdBytes,
-                    settings::getSearchTaskHeapVarianceThreshold
-                ),
+                new HeapUsageTracker(settings::getSearchTaskHeapThresholdBytes, settings::getSearchTaskHeapVarianceThreshold),
                 new ElapsedTimeTracker(System::nanoTime, () -> TimeUnit.MILLISECONDS.toNanos(settings.getSearchTaskElapsedTimeThreshold()))
             )
         );
@@ -99,8 +96,16 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
         this.trackers = trackers;
-        this.taskCancellationRateLimiter = new TokenBucket(timeNanosSupplier, getSettings().getCancellationRateNanos(), getSettings().getCancellationBurst());
-        this.taskCancellationRatioLimiter = new TokenBucket(completionCount::get, getSettings().getCancellationRatio(), getSettings().getCancellationBurst());
+        this.taskCancellationRateLimiter = new TokenBucket(
+            timeNanosSupplier,
+            getSettings().getCancellationRateNanos(),
+            getSettings().getCancellationBurst()
+        );
+        this.taskCancellationRatioLimiter = new TokenBucket(
+            completionCount::get,
+            getSettings().getCancellationRatio(),
+            getSettings().getCancellationBurst()
+        );
         this.timeNanosSupplier = timeNanosSupplier;
         this.cpuUsageSupplier = cpuUsageSupplier;
         this.heapUsageSupplier = heapUsageSupplier;
@@ -175,7 +180,9 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
      * Filters and returns the list of currently running SearchShardTasks.
      */
     List<CancellableTask> getSearchShardTasks() {
-        return taskResourceTrackingService.getResourceAwareTasks().values().stream()
+        return taskResourceTrackingService.getResourceAwareTasks()
+            .values()
+            .stream()
             .filter(task -> task instanceof SearchShardTask)
             .map(task -> (CancellableTask) task)
             .collect(Collectors.toUnmodifiableList());
@@ -248,7 +255,9 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
      * Returns the search backpressure stats as seen in the "_node/stats/search_backpressure" API.
      */
     public SearchBackpressureStats nodeStats() {
-        List<Task> searchShardTasks = taskResourceTrackingService.getResourceAwareTasks().values().stream()
+        List<Task> searchShardTasks = taskResourceTrackingService.getResourceAwareTasks()
+            .values()
+            .stream()
             .filter(task -> task instanceof SearchShardTask)
             .collect(Collectors.toUnmodifiableList());
 
@@ -260,12 +269,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
         return new SearchBackpressureStats(
             currentStats,
-            new CancellationStats(
-                cancellationCount.get(),
-                cancellationsBreakup,
-                limitReachedCount.get(),
-                lastCancelledTaskUsage.get()
-            ),
+            new CancellationStats(cancellationCount.get(), cancellationsBreakup, limitReachedCount.get(), lastCancelledTaskUsage.get()),
             getSettings().isEnabled(),
             getSettings().isEnforced()
         );

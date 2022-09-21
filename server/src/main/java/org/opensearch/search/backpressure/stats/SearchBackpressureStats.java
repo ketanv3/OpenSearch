@@ -46,18 +46,12 @@ public class SearchBackpressureStats implements ToXContentFragment, Writeable {
     }
 
     public SearchBackpressureStats(StreamInput in) throws IOException {
-        this(
-            readStats(in),
-            new CancellationStats(in),
-            in.readBoolean(),
-            in.readBoolean()
-        );
+        this(readStats(in), new CancellationStats(in), in.readBoolean(), in.readBoolean());
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        return builder
-            .startObject("search_backpressure")
+        return builder.startObject("search_backpressure")
             .startObject("current_stats")
             .field("search_shard_task", searchShardTaskCurrentStats)
             .endObject()
@@ -109,7 +103,10 @@ public class SearchBackpressureStats implements ToXContentFragment, Writeable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         SearchBackpressureStats that = (SearchBackpressureStats) o;
-        return enabled == that.enabled && enforced == that.enforced && searchShardTaskCurrentStats.equals(that.searchShardTaskCurrentStats) && searchShardTaskCancellationStats.equals(that.searchShardTaskCancellationStats);
+        return enabled == that.enabled
+            && enforced == that.enforced
+            && searchShardTaskCurrentStats.equals(that.searchShardTaskCurrentStats)
+            && searchShardTaskCancellationStats.equals(that.searchShardTaskCancellationStats);
     }
 
     @Override

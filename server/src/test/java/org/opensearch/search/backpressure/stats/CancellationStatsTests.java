@@ -28,10 +28,7 @@ public class CancellationStatsTests extends AbstractWireSerializingTestCase<Canc
     public void testLastCancelledTaskStatsIsNull() throws IOException {
         CancellationStats expected = new CancellationStats(
             randomNonNegativeLong(),
-            new MapBuilder<String, Long>()
-                .put("foo", randomNonNegativeLong())
-                .put("bar", randomNonNegativeLong())
-                .immutableMap(),
+            new MapBuilder<String, Long>().put("foo", randomNonNegativeLong()).put("bar", randomNonNegativeLong()).immutableMap(),
             randomNonNegativeLong(),
             null
         );
@@ -43,10 +40,7 @@ public class CancellationStatsTests extends AbstractWireSerializingTestCase<Canc
     public static CancellationStats randomInstance() {
         return new CancellationStats(
             randomNonNegativeLong(),
-            new MapBuilder<String, Long>()
-                .put("foo", randomNonNegativeLong())
-                .put("bar", randomNonNegativeLong())
-                .immutableMap(),
+            new MapBuilder<String, Long>().put("foo", randomNonNegativeLong()).put("bar", randomNonNegativeLong()).immutableMap(),
             randomNonNegativeLong(),
             CancelledTaskStatsTests.randomInstance()
         );
