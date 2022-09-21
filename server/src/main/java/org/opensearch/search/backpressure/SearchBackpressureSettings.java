@@ -33,9 +33,9 @@ public class SearchBackpressureSettings {
         double NODE_DURESS_CPU_THRESHOLD = 0.9;
         double NODE_DURESS_HEAP_THRESHOLD = 0.7;
 
-        double SEARCH_HEAP_USAGE_THRESHOLD = 0.05;
-        double SEARCH_TASK_HEAP_USAGE_THRESHOLD = 0.005;
-        double SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD = 2.0;
+        double SEARCH_HEAP_THRESHOLD = 0.05;
+        double SEARCH_TASK_HEAP_THRESHOLD = 0.005;
+        double SEARCH_TASK_HEAP_VARIANCE_THRESHOLD = 2.0;
 
         long SEARCH_TASK_CPU_TIME_THRESHOLD = 15;
         long SEARCH_TASK_ELAPSED_TIME_THRESHOLD = 30000;
@@ -154,10 +154,10 @@ public class SearchBackpressureSettings {
      * Defines the heap usage threshold (in percentage) for the sum of heap usages across all search tasks
      * before in-flight cancellation is applied.
      */
-    private volatile double searchHeapUsageThreshold;
-    public static final Setting<Double> SETTING_SEARCH_HEAP_USAGE_THRESHOLD = Setting.doubleSetting(
-        "search_backpressure.search_heap_usage_threshold",
-        Defaults.SEARCH_HEAP_USAGE_THRESHOLD,
+    private volatile double searchHeapThreshold;
+    public static final Setting<Double> SETTING_SEARCH_HEAP_THRESHOLD = Setting.doubleSetting(
+        "search_backpressure.search_heap_threshold",
+        Defaults.SEARCH_HEAP_THRESHOLD,
         0.0,
         1.0,
         Setting.Property.Dynamic,
@@ -167,10 +167,10 @@ public class SearchBackpressureSettings {
     /**
      * Defines the heap usage threshold (in percentage) for an individual task before it is considered for cancellation.
      */
-    private volatile double searchTaskHeapUsageThreshold;
-    public static final Setting<Double> SETTING_SEARCH_TASK_HEAP_USAGE_THRESHOLD = Setting.doubleSetting(
-        "search_backpressure.search_task_heap_usage_threshold",
-        Defaults.SEARCH_TASK_HEAP_USAGE_THRESHOLD,
+    private volatile double searchTaskHeapThreshold;
+    public static final Setting<Double> SETTING_SEARCH_TASK_HEAP_THRESHOLD = Setting.doubleSetting(
+        "search_backpressure.search_task_heap_threshold",
+        Defaults.SEARCH_TASK_HEAP_THRESHOLD,
         0.0,
         1.0,
         Setting.Property.Dynamic,
@@ -181,10 +181,10 @@ public class SearchBackpressureSettings {
      * Defines the heap usage variance for an individual task before it is considered for cancellation.
      * A task is considered for cancellation when (taskHeapUsage >= heapUsageMovingAverage * variance).
      */
-    private volatile double searchTaskHeapUsageVarianceThreshold;
-    public static final Setting<Double> SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD = Setting.doubleSetting(
-        "search_backpressure.search_task_heap_usage_variance",
-        Defaults.SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD,
+    private volatile double searchTaskHeapVarianceThreshold;
+    public static final Setting<Double> SETTING_SEARCH_TASK_HEAP_VARIANCE_THRESHOLD = Setting.doubleSetting(
+        "search_backpressure.search_task_heap_variance",
+        Defaults.SEARCH_TASK_HEAP_VARIANCE_THRESHOLD,
         0.0,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
@@ -235,14 +235,14 @@ public class SearchBackpressureSettings {
         nodeDuressHeapThreshold = SETTING_NODE_DURESS_HEAP_THRESHOLD.get(settings);
         clusterSettings.addSettingsUpdateConsumer(SETTING_NODE_DURESS_HEAP_THRESHOLD, this::setNodeDuressHeapThreshold);
 
-        searchHeapUsageThreshold = SETTING_SEARCH_HEAP_USAGE_THRESHOLD.get(settings);
-        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_HEAP_USAGE_THRESHOLD, this::setSearchHeapUsageThreshold);
+        searchHeapThreshold = SETTING_SEARCH_HEAP_THRESHOLD.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_HEAP_THRESHOLD, this::setSearchHeapThreshold);
 
-        searchTaskHeapUsageThreshold = SETTING_SEARCH_TASK_HEAP_USAGE_THRESHOLD.get(settings);
-        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_TASK_HEAP_USAGE_THRESHOLD, this::setSearchTaskHeapUsageThreshold);
+        searchTaskHeapThreshold = SETTING_SEARCH_TASK_HEAP_THRESHOLD.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_TASK_HEAP_THRESHOLD, this::setSearchTaskHeapThreshold);
 
-        searchTaskHeapUsageVarianceThreshold = SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD.get(settings);
-        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD, this::setSearchTaskHeapUsageVarianceThreshold);
+        searchTaskHeapVarianceThreshold = SETTING_SEARCH_TASK_HEAP_VARIANCE_THRESHOLD.get(settings);
+        clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_TASK_HEAP_VARIANCE_THRESHOLD, this::setSearchTaskHeapVarianceThreshold);
 
         searchTaskCpuTimeThreshold = SETTING_SEARCH_TASK_CPU_TIME_THRESHOLD.get(settings);
         clusterSettings.addSettingsUpdateConsumer(SETTING_SEARCH_TASK_CPU_TIME_THRESHOLD, this::setSearchTaskCpuTimeThreshold);
@@ -307,36 +307,36 @@ public class SearchBackpressureSettings {
         this.nodeDuressHeapThreshold = nodeDuressHeapThreshold;
     }
 
-    public double getSearchHeapUsageThreshold() {
-        return searchHeapUsageThreshold;
+    public double getSearchHeapThreshold() {
+        return searchHeapThreshold;
     }
 
-    public long getSearchHeapUsageThresholdBytes() {
-        return (long) (heapSizeBytes * getSearchHeapUsageThreshold());
+    public long getSearchHeapThresholdBytes() {
+        return (long) (heapSizeBytes * getSearchHeapThreshold());
     }
 
-    public void setSearchHeapUsageThreshold(double searchHeapUsageThreshold) {
-        this.searchHeapUsageThreshold = searchHeapUsageThreshold;
+    public void setSearchHeapThreshold(double searchHeapThreshold) {
+        this.searchHeapThreshold = searchHeapThreshold;
     }
 
-    public double getSearchTaskHeapUsageThreshold() {
-        return searchTaskHeapUsageThreshold;
+    public double getSearchTaskHeapThreshold() {
+        return searchTaskHeapThreshold;
     }
 
-    public long getSearchTaskHeapUsageThresholdBytes() {
-        return (long) (heapSizeBytes * getSearchTaskHeapUsageThreshold());
+    public long getSearchTaskHeapThresholdBytes() {
+        return (long) (heapSizeBytes * getSearchTaskHeapThreshold());
     }
 
-    public void setSearchTaskHeapUsageThreshold(double searchTaskHeapUsageThreshold) {
-        this.searchTaskHeapUsageThreshold = searchTaskHeapUsageThreshold;
+    public void setSearchTaskHeapThreshold(double searchTaskHeapThreshold) {
+        this.searchTaskHeapThreshold = searchTaskHeapThreshold;
     }
 
-    public double getSearchTaskHeapUsageVarianceThreshold() {
-        return searchTaskHeapUsageVarianceThreshold;
+    public double getSearchTaskHeapVarianceThreshold() {
+        return searchTaskHeapVarianceThreshold;
     }
 
-    public void setSearchTaskHeapUsageVarianceThreshold(double searchTaskHeapUsageVarianceThreshold) {
-        this.searchTaskHeapUsageVarianceThreshold = searchTaskHeapUsageVarianceThreshold;
+    public void setSearchTaskHeapVarianceThreshold(double searchTaskHeapVarianceThreshold) {
+        this.searchTaskHeapVarianceThreshold = searchTaskHeapVarianceThreshold;
     }
 
     public long getSearchTaskCpuTimeThreshold() {

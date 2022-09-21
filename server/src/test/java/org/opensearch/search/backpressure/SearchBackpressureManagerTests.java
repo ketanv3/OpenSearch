@@ -242,7 +242,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
 
         // Mocking 'settings' with predictable value for task memory usage so that cancellation logic doesn't get skipped.
         long taskHeapUsageBytes = 500;
-        when(settings.getSearchHeapUsageThresholdBytes()).thenReturn(taskHeapUsageBytes);
+        when(settings.getSearchHeapThresholdBytes()).thenReturn(taskHeapUsageBytes);
 
         // Create some active tasks, some of them with high resource usage.
         // 60 low resource usage tasks + 15 high resource usage tasks.

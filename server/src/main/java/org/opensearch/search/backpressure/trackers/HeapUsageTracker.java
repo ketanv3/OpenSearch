@@ -30,16 +30,16 @@ import java.util.function.LongSupplier;
 public class HeapUsageTracker extends ResourceUsageTracker {
     public static final String NAME = "heap_usage_tracker";
 
-    private final LongSupplier searchTaskHeapUsageThresholdBytesSupplier;
-    private final DoubleSupplier searchTaskHeapUsageVarianceThresholdSupplier;
+    private final LongSupplier searchTaskHeapThresholdBytesSupplier;
+    private final DoubleSupplier searchTaskHeapVarianceThresholdSupplier;
     private final MovingAverage movingAverage = new MovingAverage(100);
 
     public HeapUsageTracker(
-        LongSupplier searchTaskHeapUsageThresholdBytesSupplier,
-        DoubleSupplier searchTaskHeapUsageVarianceThresholdSupplier
+        LongSupplier searchTaskHeapThresholdBytesSupplier,
+        DoubleSupplier searchTaskHeapVarianceThresholdSupplier
     ) {
-        this.searchTaskHeapUsageThresholdBytesSupplier = searchTaskHeapUsageThresholdBytesSupplier;
-        this.searchTaskHeapUsageVarianceThresholdSupplier = searchTaskHeapUsageVarianceThresholdSupplier;
+        this.searchTaskHeapThresholdBytesSupplier = searchTaskHeapThresholdBytesSupplier;
+        this.searchTaskHeapVarianceThresholdSupplier = searchTaskHeapVarianceThresholdSupplier;
     }
 
     @Override
@@ -61,9 +61,9 @@ public class HeapUsageTracker extends ResourceUsageTracker {
 
         double taskHeapUsage = task.getTotalResourceStats().getMemoryInBytes();
         double averageHeapUsage = movingAverage.getAverage();
-        double allowedHeapUsage = averageHeapUsage * searchTaskHeapUsageVarianceThresholdSupplier.getAsDouble();
+        double allowedHeapUsage = averageHeapUsage * searchTaskHeapVarianceThresholdSupplier.getAsDouble();
 
-        if (taskHeapUsage < searchTaskHeapUsageThresholdBytesSupplier.getAsLong() || taskHeapUsage < allowedHeapUsage) {
+        if (taskHeapUsage < searchTaskHeapThresholdBytesSupplier.getAsLong() || taskHeapUsage < allowedHeapUsage) {
             return Optional.empty();
         }
 

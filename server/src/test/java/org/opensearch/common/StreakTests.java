@@ -15,10 +15,10 @@ public class StreakTests extends OpenSearchTestCase {
     public void testStreak() {
         Streak streak = new Streak();
 
-        // streak starts with zero
+        // Streak starts with zero.
         assertEquals(0, streak.length());
 
-        // streak increases on consecutive successes
+        // Streak increases on consecutive successful events.
         streak.record(true);
         assertEquals(1, streak.length());
         streak.record(true);
@@ -26,7 +26,7 @@ public class StreakTests extends OpenSearchTestCase {
         streak.record(true);
         assertEquals(3, streak.length());
 
-        // streak resets to zero after an unsuccessful event
+        // Streak resets to zero after an unsuccessful event.
         streak.record(false);
         assertEquals(0, streak.length());
     }

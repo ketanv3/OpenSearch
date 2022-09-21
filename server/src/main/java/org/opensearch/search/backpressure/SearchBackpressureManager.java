@@ -78,8 +78,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             List.of(
                 new CpuUsageTracker(() -> TimeUnit.MILLISECONDS.toNanos(settings.getSearchTaskCpuTimeThreshold())),
                 new HeapUsageTracker(
-                    settings::getSearchTaskHeapUsageThresholdBytes,
-                    settings::getSearchTaskHeapUsageVarianceThreshold
+                    settings::getSearchTaskHeapThresholdBytes,
+                    settings::getSearchTaskHeapVarianceThreshold
                 ),
                 new ElapsedTimeTracker(System::nanoTime, () -> TimeUnit.MILLISECONDS.toNanos(settings.getSearchTaskElapsedTimeThreshold()))
             )
@@ -126,7 +126,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
         // Skip cancellation if the increase in heap usage is not due to search requests.
         long runningTasksHeapUsage = searchShardTasks.stream().mapToLong(task -> task.getTotalResourceStats().getMemoryInBytes()).sum();
-        if (runningTasksHeapUsage < getSettings().getSearchHeapUsageThresholdBytes()) {
+        if (runningTasksHeapUsage < getSettings().getSearchHeapThresholdBytes()) {
             return;
         }
 
