@@ -43,8 +43,8 @@ public class TokenBucket {
             throw new IllegalArgumentException("rate must be greater than zero");
         }
 
-        if (burst <= 0.0) {
-            throw new IllegalArgumentException("burst must be greater than zero");
+        if (burst < 1.0) {
+            throw new IllegalArgumentException("burst must be greater than or equal to one");
         }
 
         this.clock = clock;

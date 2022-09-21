@@ -84,7 +84,7 @@ public class SearchBackpressureSettings {
     public static final Setting<Double> SETTING_CANCELLATION_BURST = Setting.doubleSetting(
         "search_backpressure.cancellation_burst",
         Defaults.CANCELLATION_BURST,
-        0.0,
+        1.0,
         Setting.Property.NodeScope
     );
 

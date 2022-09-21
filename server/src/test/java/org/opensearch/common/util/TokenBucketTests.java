@@ -47,7 +47,7 @@ public class TokenBucketTests extends OpenSearchTestCase {
         assertFalse(tokenBucket.request());
     }
 
-    public void testTokenBucketWithNegativeRate() {
+    public void testTokenBucketWithInvalidRate() {
         try {
             new TokenBucket(System::nanoTime, -1, 2);
         } catch (IllegalArgumentException e) {
@@ -58,11 +58,11 @@ public class TokenBucketTests extends OpenSearchTestCase {
         fail("exception should have been thrown");
     }
 
-    public void testTokenBucketWithNegativeBurst() {
+    public void testTokenBucketWithInvalidBurst() {
         try {
-            new TokenBucket(System::nanoTime, 1, -2);
+            new TokenBucket(System::nanoTime, 1, 0);
         } catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("burst must be greater than zero"));
+            assertTrue(e.getMessage().contains("burst must be greater than or equal to one"));
             return;
         }
 
