@@ -42,6 +42,10 @@ public class SearchBackpressureSettings {
     }
 
     // Static settings
+
+    /**
+     * Defines the interval (in millis) at which the SearchBackpressureManager monitors and cancels tasks.
+     */
     private final TimeValue interval;
     public static final Setting<Long> SETTING_INTERVAL = Setting.longSetting(
         "search_backpressure.interval",
@@ -50,6 +54,9 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the percentage of tasks to cancel relative to the number of successful task completions.
+     */
     private final double cancellationRatio;
     public static final Setting<Double> SETTING_CANCELLATION_RATIO = Setting.doubleSetting(
         "search_backpressure.cancellation_ratio",
@@ -59,6 +66,9 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the number of tasks to cancel per unit time (in nanos).
+     */
     private final double cancellationRate;
     public static final Setting<Double> SETTING_CANCELLATION_RATE = Setting.doubleSetting(
         "search_backpressure.cancellation_rate",
@@ -67,6 +77,9 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the maximum number of tasks that can be cancelled before being rate-limited.
+     */
     private final double cancellationBurst;
     public static final Setting<Double> SETTING_CANCELLATION_BURST = Setting.doubleSetting(
         "search_backpressure.cancellation_burst",
@@ -76,6 +89,10 @@ public class SearchBackpressureSettings {
     );
 
     // Dynamic settings
+
+    /**
+     * Defines whether search backpressure is enabled or not.
+     */
     private volatile boolean enabled;
     public static final Setting<Boolean> SETTING_ENABLED = Setting.boolSetting(
         "search_backpressure.enabled",
@@ -84,6 +101,9 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines whether in-flight cancellation of tasks is enabled or not.
+     */
     private volatile boolean enforced;
     public static final Setting<Boolean> SETTING_ENFORCED = Setting.boolSetting(
         "search_backpressure.enforced",
@@ -92,6 +112,9 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the number of consecutive limit breaches after the node is marked "in duress".
+     */
     private volatile int nodeDuressNumConsecutiveBreaches;
     public static final Setting<Integer> SETTING_NODE_DURESS_NUM_CONSECUTIVE_BREACHES = Setting.intSetting(
         "search_backpressure.node_duress.num_consecutive_breaches",
@@ -101,6 +124,9 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the CPU usage threshold (in percentage) for a node to be considered "in duress".
+     */
     private volatile double nodeDuressCpuThreshold;
     public static final Setting<Double> SETTING_NODE_DURESS_CPU_THRESHOLD = Setting.doubleSetting(
         "search_backpressure.node_duress.cpu_threshold",
@@ -111,6 +137,9 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the heap usage threshold (in percentage) for a node to be considered "in duress".
+     */
     private volatile double nodeDuressHeapThreshold;
     public static final Setting<Double> SETTING_NODE_DURESS_HEAP_THRESHOLD = Setting.doubleSetting(
         "search_backpressure.node_duress.heap_threshold",
@@ -121,6 +150,10 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the heap usage threshold (in percentage) for the sum of heap usages across all search tasks
+     * before in-flight cancellation is applied.
+     */
     private volatile double searchHeapUsageThreshold;
     public static final Setting<Double> SETTING_SEARCH_HEAP_USAGE_THRESHOLD = Setting.doubleSetting(
         "search_backpressure.search_heap_usage_threshold",
@@ -131,6 +164,9 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the heap usage threshold (in percentage) for an individual task before it is considered for cancellation.
+     */
     private volatile double searchTaskHeapUsageThreshold;
     public static final Setting<Double> SETTING_SEARCH_TASK_HEAP_USAGE_THRESHOLD = Setting.doubleSetting(
         "search_backpressure.search_task_heap_usage_threshold",
@@ -141,6 +177,10 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the heap usage variance for an individual task before it is considered for cancellation.
+     * A task is considered for cancellation when (taskHeapUsage >= heapUsageMovingAverage * variance).
+     */
     private volatile double searchTaskHeapUsageVarianceThreshold;
     public static final Setting<Double> SETTING_SEARCH_TASK_HEAP_USAGE_VARIANCE_THRESHOLD = Setting.doubleSetting(
         "search_backpressure.search_task_heap_usage_variance",
@@ -150,6 +190,9 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the CPU usage threshold (in nanos) for an individual task before it is considered for cancellation.
+     */
     private volatile long searchTaskCpuTimeThreshold;
     public static final Setting<Long> SETTING_SEARCH_TASK_CPU_TIME_THRESHOLD = Setting.longSetting(
         "search_backpressure.search_task_cpu_time_threshold",
@@ -159,6 +202,9 @@ public class SearchBackpressureSettings {
         Setting.Property.NodeScope
     );
 
+    /**
+     * Defines the elapsed time threshold (in nanos) for an individual task before it is considered for cancellation.
+     */
     private volatile long searchTaskElapsedTimeThreshold;
     public static final Setting<Long> SETTING_SEARCH_TASK_ELAPSED_TIME_THRESHOLD = Setting.longSetting(
         "search_backpressure.search_task_elapsed_time_threshold",
