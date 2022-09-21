@@ -45,6 +45,11 @@ public class TokenBucketTests extends OpenSearchTestCase {
         assertTrue(tokenBucket.request());
         assertTrue(tokenBucket.request());
         assertFalse(tokenBucket.request());
+
+        // Ability to request fractional tokens.
+        mockTimeNanos.addAndGet(TimeUnit.MILLISECONDS.toNanos(250));
+        assertFalse(tokenBucket.request(1.0));
+        assertTrue(tokenBucket.request(0.5));
     }
 
     public void testTokenBucketWithInvalidRate() {
@@ -62,7 +67,7 @@ public class TokenBucketTests extends OpenSearchTestCase {
         try {
             new TokenBucket(System::nanoTime, 1, 0);
         } catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("burst must be greater than or equal to one"));
+            assertTrue(e.getMessage().contains("burst must be greater than zero"));
             return;
         }
 

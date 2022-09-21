@@ -17,19 +17,19 @@ public class TokenBucket {
     /**
      * Defines a monotonically increasing counter.
      *
-     * Some examples:
-     * 1. clock = System::nanoTime - to perform rate-limiting per unit time.
-     * 2. clock = AtomicLong::incrementAndGet - to perform rate-limiting per unit operation.
+     * Usage examples:
+     * 1. clock = System::nanoTime can be used to perform rate-limiting per unit time
+     * 2. clock = AtomicLong::get can be used to perform rate-limiting per unit number of operations
      */
     private final LongSupplier clock;
 
     /**
-     * Defines the number of tokens added to the bucket per 'clock' cycle.
+     * Defines the number of tokens added to the bucket per clock cycle.
      */
     private final double rate;
 
     /**
-     * Defines the capacity as well as the maximum number of operations that can be performed per 'clock' cycle before
+     * Defines the capacity and the maximum number of operations that can be performed per clock cycle before
      * the bucket runs out of tokens.
      */
     private final double burst;
@@ -39,18 +39,22 @@ public class TokenBucket {
     private long lastRefilledAt;
 
     public TokenBucket(LongSupplier clock, double rate, double burst) {
+        this(clock, rate, burst, burst);
+    }
+
+    public TokenBucket(LongSupplier clock, double rate, double burst, double initialTokens) {
         if (rate <= 0.0) {
             throw new IllegalArgumentException("rate must be greater than zero");
         }
 
-        if (burst < 1.0) {
-            throw new IllegalArgumentException("burst must be greater than or equal to one");
+        if (burst <= 0.0) {
+            throw new IllegalArgumentException("burst must be greater than zero");
         }
 
         this.clock = clock;
         this.rate = rate;
         this.burst = burst;
-        this.tokens = burst;
+        this.tokens = initialTokens;
         this.lastRefilledAt = clock.getAsLong();
     }
 
@@ -65,17 +69,27 @@ public class TokenBucket {
     }
 
     /**
-     * If there are >= 1 tokens, it requests/deducts one token and returns true.
+     * If there are enough tokens in the bucket, it requests/deducts 'n' tokens and returns true.
      * Otherwise, returns false and leaves the bucket untouched.
      */
-    public synchronized boolean request() {
-        refill();
-
-        if (tokens >= 1.0) {
-            tokens -= 1.0;
-            return true;
+    public boolean request(double n) {
+        if (n <= 0) {
+            throw new IllegalArgumentException("requested tokens must be greater than zero");
         }
 
-        return false;
+        synchronized (this) {
+            refill();
+
+            if (tokens >= n) {
+                tokens -= n;
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    public boolean request() {
+        return request(1.0);
     }
 }

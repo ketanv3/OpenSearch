@@ -11,14 +11,15 @@ package org.opensearch.common.util;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class MovingAverageTests extends OpenSearchTestCase {
+
     public void testMovingAverage() {
         MovingAverage ma = new MovingAverage(5);
 
-        // no observations
+        // No observations
         assertEquals(0.0, ma.getAverage(), 0.0);
         assertEquals(0, ma.getCount());
 
-        // not enough observations
+        // Not enough observations
         ma.record(1);
         ma.record(2);
         ma.record(3);
@@ -26,7 +27,7 @@ public class MovingAverageTests extends OpenSearchTestCase {
         assertEquals(3, ma.getCount());
         assertFalse(ma.isReady());
 
-        // enough observations
+        // Enough observations
         ma.record(4);
         ma.record(5);
         ma.record(6);
