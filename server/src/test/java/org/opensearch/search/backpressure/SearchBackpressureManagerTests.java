@@ -165,7 +165,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         for (int i = 0; i < 100; i++) {
             manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, 200));
         }
-        assertEquals(100, manager.getCurrentIterationCompletedTasks());
+        assertEquals(100, manager.getCompletionCount());
         verify(mockTracker, times(100)).update(any());
     }
 
@@ -256,46 +256,37 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         }
         doReturn(activeTasks).when(mockTaskResourceTrackingService).getResourceAwareTasks();
 
-        // There are 15 tasks eligible for cancellation but there haven't been any successful task completions
-        // (currentIterationCompletedTasks == 0), so we can only cancel one task.
+        // Mocking 'settings' with predictable rate limiting thresholds.
+        when(settings.getCancellationRatio()).thenReturn(0.1);
+        when(settings.getCancellationRate()).thenReturn(3.0 / TimeUnit.SECONDS.toNanos(1));
+        when(settings.getCancellationBurst()).thenReturn(10.0);
+
+        // There are 15 tasks eligible for cancellation, but only 10 will be cancelled (burst limit).
         manager.run();
-        assertEquals(1, manager.getCancellationCount());
+        assertEquals(10, manager.getCancellationCount());
         assertEquals(1, manager.getLimitReachedCount());
         assertNotNull(manager.getLastCancelledTaskUsage());
 
-        // Record many task completions so that we are not limited by currentIterationCompletedTasks anymore.
-        for (int i = 0; i < 1000; i++) {
-            manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, taskHeapUsageBytes));
-        }
-
-        // Task cancellation rate should still be limited by the token bucket.
+        // If the clock or completed task count haven't made sufficient progress, we'll continue to be rate-limited.
         manager.run();
         assertEquals(10, manager.getCancellationCount());
         assertEquals(2, manager.getLimitReachedCount());
 
-        // currentIterationCompletedTasks is reset after each iteration.
-        assertEquals(0, manager.getCurrentIterationCompletedTasks());
-        for (int i = 0; i < 1000; i++) {
+        // Simulate task completion to replenish some tokens.
+        // This will add 2 tokens (task count delta * cancellationRatio) to 'rateLimitPerTaskCompletion'.
+        for (int i = 0; i < 20; i++) {
             manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, taskHeapUsageBytes));
         }
+        manager.run();
+        assertEquals(12, manager.getCancellationCount());
+        assertEquals(3, manager.getLimitReachedCount());
 
         // Fast-forward the clock by one second to replenish some tokens.
+        // This will add 3 tokens (time delta * rate) to 'rateLimitPerTime'.
         mockTime.addAndGet(TimeUnit.SECONDS.toNanos(1));
-        manager.run();
-        assertEquals(13, manager.getCancellationCount());
-        assertEquals(3, manager.getLimitReachedCount());
-
-        // Prepare for the next iteration.
-        for (int i = 0; i < 1000; i++) {
-            manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, taskHeapUsageBytes));
-        }
-        mockTime.addAndGet(TimeUnit.SECONDS.toNanos(1));
-
-        // There are only two remaining tasks with high resource usage.
-        // limitReachedCount should not be incremented when the number of cancellations in that iteration is less than or equal to the limits.
         manager.run();
         assertEquals(15, manager.getCancellationCount());
-        assertEquals(3, manager.getLimitReachedCount());
+        assertEquals(3, manager.getLimitReachedCount());  // no more tasks to cancel; limit not reached
 
         // Verify search backpressure stats
         SearchBackpressureStats expectedStats = new SearchBackpressureStats(
@@ -304,7 +295,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
                 15,
                 Map.of("mock_tracker", 15L),
                 3,
-                new CancelledTaskStats(500, taskHeapUsageBytes, 2000000000)
+                new CancelledTaskStats(500, taskHeapUsageBytes, 1000000000)
             ),
             true,
             true

@@ -53,6 +53,7 @@ public class SearchBackpressureSettings {
     private final double cancellationRatio;
     public static final Setting<Double> SETTING_CANCELLATION_RATIO = Setting.doubleSetting(
         "search_backpressure.cancellation_ratio",
+        Defaults.CANCELLATION_RATIO,
         0.0,
         1.0,
         Setting.Property.NodeScope
@@ -61,16 +62,16 @@ public class SearchBackpressureSettings {
     private final double cancellationRate;
     public static final Setting<Double> SETTING_CANCELLATION_RATE = Setting.doubleSetting(
         "search_backpressure.cancellation_rate",
+        Defaults.CANCELLATION_RATE,
         0.0,
-        1.0,
         Setting.Property.NodeScope
     );
 
     private final double cancellationBurst;
     public static final Setting<Double> SETTING_CANCELLATION_BURST = Setting.doubleSetting(
         "search_backpressure.cancellation_burst",
+        Defaults.CANCELLATION_BURST,
         0.0,
-        1.0,
         Setting.Property.NodeScope
     );
 

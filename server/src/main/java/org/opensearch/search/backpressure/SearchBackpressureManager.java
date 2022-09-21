@@ -51,12 +51,14 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     private final Streak cpuBreachesStreak = new Streak();
     private final Streak heapBreachesStreak = new Streak();
 
-    private final AtomicLong currentIterationCompletedTasks = new AtomicLong();
+    private final AtomicLong completionCount = new AtomicLong();
     private final AtomicLong cancellationCount = new AtomicLong();
     private final AtomicLong limitReachedCount = new AtomicLong();
     private final AtomicReference<CancelledTaskStats> lastCancelledTaskUsage = new AtomicReference<>();
 
-    private final TokenBucket tokenBucket;
+    private final TokenBucket rateLimitPerTime;
+    private final TokenBucket rateLimitPerTaskCompletion;
+
     private final LongSupplier timeNanosSupplier;
     private final DoubleSupplier cpuUsageSupplier;
     private final DoubleSupplier heapUsageSupplier;
@@ -97,7 +99,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
         this.trackers = trackers;
-        this.tokenBucket = new TokenBucket(timeNanosSupplier, getSettings().getCancellationRate(), getSettings().getCancellationBurst());
+        this.rateLimitPerTime = new TokenBucket(timeNanosSupplier, getSettings().getCancellationRate(), getSettings().getCancellationBurst());
+        this.rateLimitPerTaskCompletion = new TokenBucket(completionCount::get, getSettings().getCancellationRatio(), getSettings().getCancellationBurst());
         this.timeNanosSupplier = timeNanosSupplier;
         this.cpuUsageSupplier = cpuUsageSupplier;
         this.heapUsageSupplier = heapUsageSupplier;
@@ -127,10 +130,6 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             return;
         }
 
-        // Calculate the maximum number of tasks to cancel based on the successful task completion rate.
-        int maxTasksToCancel = Math.max(1, (int) (currentIterationCompletedTasks.get() * getSettings().getCancellationRatio()));
-        int currentIterationCancellationCount = 0;
-
         for (TaskCancellation taskCancellation : getTaskCancellations(searchShardTasks)) {
             logger.info("cancelling task due to high resource consumption: id={} reason={}", taskCancellation.getTask().getId(), taskCancellation.getReasonString());
 
@@ -138,7 +137,12 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
                 continue;
             }
 
-            if (currentIterationCancellationCount++ >= maxTasksToCancel || tokenBucket.request() == false) {
+            // Independently remove tokens from both token buckets.
+            boolean timeRateLimitReached = rateLimitPerTime.request() == false;
+            boolean taskCompletionRateLimitReached = rateLimitPerTaskCompletion.request() == false;
+
+            // Stop cancelling tasks if there are no tokens in either of the two token buckets.
+            if (timeRateLimitReached && taskCompletionRateLimitReached) {
                 limitReachedCount.incrementAndGet();
                 break;
             }
@@ -147,9 +151,6 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             lastCancelledTaskUsage.set(stats);
             cancellationCount.incrementAndGet();
         }
-
-        // Reset the completed task count to zero.
-        currentIterationCompletedTasks.set(0);
     }
 
     /**
@@ -214,7 +215,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
         SearchShardTask searchShardTask = (SearchShardTask) task;
         if (searchShardTask.isCancelled() == false) {
-            currentIterationCompletedTasks.incrementAndGet();
+            completionCount.incrementAndGet();
         }
 
         for (ResourceUsageTracker tracker : trackers) {
@@ -226,8 +227,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         return settings;
     }
 
-    public long getCurrentIterationCompletedTasks() {
-        return currentIterationCompletedTasks.get();
+    public long getCompletionCount() {
+        return completionCount.get();
     }
 
     public long getCancellationCount() {
