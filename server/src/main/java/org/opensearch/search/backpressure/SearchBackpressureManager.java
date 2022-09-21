@@ -56,8 +56,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     private final AtomicLong limitReachedCount = new AtomicLong();
     private final AtomicReference<CancelledTaskStats> lastCancelledTaskUsage = new AtomicReference<>();
 
-    private final TokenBucket rateLimitPerTime;
-    private final TokenBucket rateLimitPerTaskCompletion;
+    private final TokenBucket taskCancellationRateLimiter;
+    private final TokenBucket taskCancellationRatioLimiter;
 
     private final LongSupplier timeNanosSupplier;
     private final DoubleSupplier cpuUsageSupplier;
@@ -99,8 +99,8 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
         this.trackers = trackers;
-        this.rateLimitPerTime = new TokenBucket(timeNanosSupplier, getSettings().getCancellationRate(), getSettings().getCancellationBurst());
-        this.rateLimitPerTaskCompletion = new TokenBucket(completionCount::get, getSettings().getCancellationRatio(), getSettings().getCancellationBurst());
+        this.taskCancellationRateLimiter = new TokenBucket(timeNanosSupplier, getSettings().getCancellationRate(), getSettings().getCancellationBurst());
+        this.taskCancellationRatioLimiter = new TokenBucket(completionCount::get, getSettings().getCancellationRatio(), getSettings().getCancellationBurst());
         this.timeNanosSupplier = timeNanosSupplier;
         this.cpuUsageSupplier = cpuUsageSupplier;
         this.heapUsageSupplier = heapUsageSupplier;
@@ -131,18 +131,22 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         }
 
         for (TaskCancellation taskCancellation : getTaskCancellations(searchShardTasks)) {
-            logger.info("cancelling task due to high resource consumption: id={} reason={}", taskCancellation.getTask().getId(), taskCancellation.getReasonString());
+            logger.debug(
+                "cancelling task [{}] due to high resource consumption [{}]",
+                taskCancellation.getTask().getId(),
+                taskCancellation.getReasonString()
+            );
 
             if (getSettings().isEnforced() == false) {
                 continue;
             }
 
             // Independently remove tokens from both token buckets.
-            boolean timeRateLimitReached = rateLimitPerTime.request() == false;
-            boolean taskCompletionRateLimitReached = rateLimitPerTaskCompletion.request() == false;
+            boolean rateLimitReached = taskCancellationRateLimiter.request() == false;
+            boolean ratioLimitReached = taskCancellationRatioLimiter.request() == false;
 
             // Stop cancelling tasks if there are no tokens in either of the two token buckets.
-            if (timeRateLimitReached && taskCompletionRateLimitReached) {
+            if (rateLimitReached && ratioLimitReached) {
                 limitReachedCount.incrementAndGet();
                 break;
             }
@@ -154,13 +158,9 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     }
 
     /**
-     * Returns true if the node is currently under duress.
-     * + CPU usage is greater than 70% continuously for 3 observations
-     * + Heap usage is greater than 80% continuously for 3 observations
+     * Returns true if the node is breaching CPU or memory limits consecutively for the past 'n' observations.
      */
     boolean isNodeInDuress() {
-        logger.info("cpu={} mem={}", cpuUsageSupplier.getAsDouble(), heapUsageSupplier.getAsDouble());
-
         boolean isCpuBreached = cpuUsageSupplier.getAsDouble() >= getSettings().getNodeDuressCpuThreshold();
         boolean isHeapBreached = heapUsageSupplier.getAsDouble() >= getSettings().getNodeDuressHeapThreshold();
 
@@ -172,7 +172,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     }
 
     /**
-     * Filters and returns the list of actively running SearchShardTasks.
+     * Filters and returns the list of currently running SearchShardTasks.
      */
     List<CancellableTask> getSearchShardTasks() {
         return taskResourceTrackingService.getResourceAwareTasks().values().stream()
@@ -182,9 +182,9 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     }
 
     /**
-     * Returns the TaskCancellation wrapper for the given task.
-     * The TaskCancellation contains a list of reasons (possibly zero) to cancel the task, along with an overall
-     * cancellation score. Cancelling a task with a higher score has a better chance of recovering the node from duress.
+     * Returns a TaskCancellation wrapper containing the list of reasons (possibly zero), along with an overall
+     * cancellation score for the given task. Cancelling a task with a higher score has better chance of recovering the
+     * node from duress.
      */
     TaskCancellation getTaskCancellation(CancellableTask task) {
         List<TaskCancellation.Reason> reasons = trackers.stream()
@@ -197,7 +197,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     }
 
     /**
-     * Returns the list of TaskCancellations sorted by descending order of their cancellation score.
+     * Returns a list of TaskCancellations sorted by descending order of their cancellation scores.
      */
     List<TaskCancellation> getTaskCancellations(List<CancellableTask> tasks) {
         return tasks.stream()
@@ -218,6 +218,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             completionCount.incrementAndGet();
         }
 
+        // TODO: Should we update tracker stats with cancelled tasks? Or should we let the tracker decide what to do?
         for (ResourceUsageTracker tracker : trackers) {
             tracker.update(searchShardTask);
         }
@@ -244,7 +245,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
     }
 
     /**
-     * Returns the stats for the "/_node/stats/search_backpressure" API.
+     * Returns the search backpressure stats as seen in the "_node/stats/search_backpressure" API.
      */
     public SearchBackpressureStats nodeStats() {
         List<Task> searchShardTasks = taskResourceTrackingService.getResourceAwareTasks().values().stream()
