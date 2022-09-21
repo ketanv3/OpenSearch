@@ -227,6 +227,11 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
         ));
 
+        // Mocking 'settings' with predictable rate limiting thresholds.
+        when(settings.getCancellationRatio()).thenReturn(0.1);
+        when(settings.getCancellationRate()).thenReturn(0.003);
+        when(settings.getCancellationBurst()).thenReturn(10.0);
+
         SearchBackpressureManager manager = new SearchBackpressureManager(
             settings,
             mockTaskResourceTrackingService,
@@ -254,11 +259,6 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             }
         }
         doReturn(activeTasks).when(mockTaskResourceTrackingService).getResourceAwareTasks();
-
-        // Mocking 'settings' with predictable rate limiting thresholds.
-        when(settings.getCancellationRatio()).thenReturn(0.1);
-        when(settings.getCancellationRate()).thenReturn(3.0 / TimeUnit.SECONDS.toNanos(1));
-        when(settings.getCancellationBurst()).thenReturn(10.0);
 
         // There are 15 tasks eligible for cancellation but only 10 will be cancelled (burst limit).
         manager.run();

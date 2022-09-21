@@ -99,7 +99,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
         this.trackers = trackers;
-        this.taskCancellationRateLimiter = new TokenBucket(timeNanosSupplier, getSettings().getCancellationRate(), getSettings().getCancellationBurst());
+        this.taskCancellationRateLimiter = new TokenBucket(timeNanosSupplier, getSettings().getCancellationRateNanos(), getSettings().getCancellationBurst());
         this.taskCancellationRatioLimiter = new TokenBucket(completionCount::get, getSettings().getCancellationRatio(), getSettings().getCancellationBurst());
         this.timeNanosSupplier = timeNanosSupplier;
         this.cpuUsageSupplier = cpuUsageSupplier;

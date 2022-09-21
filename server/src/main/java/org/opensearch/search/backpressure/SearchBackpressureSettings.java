@@ -23,7 +23,7 @@ public class SearchBackpressureSettings {
         long INTERVAL = 1000;
 
         double CANCELLATION_RATIO = 0.1;
-        double CANCELLATION_RATE = 3.0 / TimeUnit.SECONDS.toNanos(1);
+        double CANCELLATION_RATE = 0.003;
         double CANCELLATION_BURST = 10.0;
 
         boolean ENABLED = true;
@@ -56,6 +56,7 @@ public class SearchBackpressureSettings {
 
     /**
      * Defines the percentage of tasks to cancel relative to the number of successful task completions.
+     * In other words, it is the number of tokens added to the bucket on each successful task completion.
      */
     private final double cancellationRatio;
     public static final Setting<Double> SETTING_CANCELLATION_RATIO = Setting.doubleSetting(
@@ -67,7 +68,8 @@ public class SearchBackpressureSettings {
     );
 
     /**
-     * Defines the number of tasks to cancel per unit time (in nanos).
+     * Defines the number of tasks to cancel per unit time (in millis).
+     * In other words, it is the number of tokens added to the bucket each millisecond.
      */
     private final double cancellationRate;
     public static final Setting<Double> SETTING_CANCELLATION_RATE = Setting.doubleSetting(
@@ -261,6 +263,10 @@ public class SearchBackpressureSettings {
 
     public double getCancellationRate() {
         return cancellationRate;
+    }
+
+    public double getCancellationRateNanos() {
+        return getCancellationRate() / TimeUnit.MILLISECONDS.toNanos(1); // rate per nanoseconds
     }
 
     public double getCancellationBurst() {
