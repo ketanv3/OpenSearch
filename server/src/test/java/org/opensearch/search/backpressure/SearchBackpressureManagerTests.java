@@ -40,10 +40,11 @@ import java.util.function.LongSupplier;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.opensearch.search.backpressure.TestHelpers.createMockTaskWithResourceStats;
-import static org.opensearch.search.backpressure.Thresholds.SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES;
 
 public class SearchBackpressureManagerTests extends OpenSearchTestCase {
 
@@ -154,15 +155,15 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             mockTaskResourceTrackingService,
             mockThreadPool,
             mockTimeNanosSupplier,
-            () -> 1.0,  // node in duress
-            () -> 0.0,
+            () -> 0.5,
+            () -> 0.5,
             List.of(mockTracker)
         );
 
         // Record task completions to update the tracker state. Tasks other than SearchShardTask are ignored.
         manager.onTaskCompleted(createMockTaskWithResourceStats(CancellableTask.class, 100, 200));
         for (int i = 0; i < 100; i++) {
-            manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES));
+            manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, 200));
         }
         assertEquals(100, manager.getCurrentIterationCompletedTasks());
         verify(mockTracker, times(100)).update(any());
@@ -221,10 +222,10 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
             }
         };
 
-        SearchBackpressureSettings settings = new SearchBackpressureSettings(
+        SearchBackpressureSettings settings = spy(new SearchBackpressureSettings(
             Settings.EMPTY,
             new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
-        );
+        ));
 
         SearchBackpressureManager manager = new SearchBackpressureManager(
             settings,
@@ -239,14 +240,18 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         manager.run(); manager.run();  // allowing node to be marked 'in duress' from the next iteration
         assertNull(manager.getLastCancelledTaskUsage());
 
+        // Mocking 'settings' with predictable value for task memory usage so that cancellation logic doesn't get skipped.
+        long taskHeapUsageBytes = 500;
+        when(settings.getSearchHeapUsageThresholdBytes()).thenReturn(taskHeapUsageBytes);
+
         // Create some active tasks, some of them with high resource usage.
         // 60 low resource usage tasks + 15 high resource usage tasks.
         Map<Long, Task> activeTasks = new HashMap<>();
         for (long i = 0; i < 75; i++) {
             if (i % 5 == 0) {
-                activeTasks.put(i, createMockTaskWithResourceStats(SearchShardTask.class, 500, SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES));
+                activeTasks.put(i, createMockTaskWithResourceStats(SearchShardTask.class, 500, taskHeapUsageBytes));
             } else {
-                activeTasks.put(i, createMockTaskWithResourceStats(SearchShardTask.class, 100, SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES));
+                activeTasks.put(i, createMockTaskWithResourceStats(SearchShardTask.class, 100, taskHeapUsageBytes));
             }
         }
         doReturn(activeTasks).when(mockTaskResourceTrackingService).getResourceAwareTasks();
@@ -260,7 +265,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
 
         // Record many task completions so that we are not limited by currentIterationCompletedTasks anymore.
         for (int i = 0; i < 1000; i++) {
-            manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES));
+            manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, taskHeapUsageBytes));
         }
 
         // Task cancellation rate should still be limited by the token bucket.
@@ -271,7 +276,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
         // currentIterationCompletedTasks is reset after each iteration.
         assertEquals(0, manager.getCurrentIterationCompletedTasks());
         for (int i = 0; i < 1000; i++) {
-            manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES));
+            manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, taskHeapUsageBytes));
         }
 
         // Fast-forward the clock by one second to replenish some tokens.
@@ -282,7 +287,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
 
         // Prepare for the next iteration.
         for (int i = 0; i < 1000; i++) {
-            manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES));
+            manager.onTaskCompleted(createMockTaskWithResourceStats(SearchShardTask.class, 100, taskHeapUsageBytes));
         }
         mockTime.addAndGet(TimeUnit.SECONDS.toNanos(1));
 
@@ -299,7 +304,7 @@ public class SearchBackpressureManagerTests extends OpenSearchTestCase {
                 15,
                 Map.of("mock_tracker", 15L),
                 3,
-                new CancelledTaskStats(500, SEARCH_TASK_HEAP_USAGE_THRESHOLD_BYTES, 2000000000)
+                new CancelledTaskStats(500, taskHeapUsageBytes, 2000000000)
             ),
             true,
             true

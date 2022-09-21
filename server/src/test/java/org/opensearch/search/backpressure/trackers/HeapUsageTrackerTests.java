@@ -10,7 +10,6 @@ package org.opensearch.search.backpressure.trackers;
 
 import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.search.backpressure.TaskCancellation;
-import org.opensearch.search.backpressure.Thresholds;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchTestCase;
 

@@ -13,8 +13,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.common.Streak;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.TokenBucket;
 import org.opensearch.monitor.jvm.JvmStats;
 import org.opensearch.search.backpressure.stats.CancellationStats;
@@ -45,7 +43,6 @@ import java.util.stream.Collectors;
 public class SearchBackpressureManager implements Runnable, TaskCompletionListener {
     private static final Logger logger = LogManager.getLogger(SearchBackpressureManager.class);
     private static final OperatingSystemMXBean osMXBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-    private static final long heapSizeBytes = JvmStats.jvmStats().getMem().getHeapMax().getBytes();
 
     private final SearchBackpressureSettings settings;
     private final TaskResourceTrackingService taskResourceTrackingService;
@@ -79,7 +76,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
             List.of(
                 new CpuUsageTracker(() -> TimeUnit.MILLISECONDS.toNanos(settings.getSearchTaskCpuTimeThreshold())),
                 new HeapUsageTracker(
-                    () -> (long) (heapSizeBytes * settings.getSearchTaskHeapUsageThreshold()),
+                    settings::getSearchTaskHeapUsageThresholdBytes,
                     settings::getSearchTaskHeapUsageVarianceThreshold
                 ),
                 new ElapsedTimeTracker(System::nanoTime, () -> TimeUnit.MILLISECONDS.toNanos(settings.getSearchTaskElapsedTimeThreshold()))
@@ -100,7 +97,7 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
         this.taskResourceTrackingService = taskResourceTrackingService;
         this.taskResourceTrackingService.addTaskCompletionListener(this);
         this.trackers = trackers;
-        this.tokenBucket = new TokenBucket(timeNanosSupplier, 3.0 / TimeUnit.SECONDS.toNanos(1), 10.0);
+        this.tokenBucket = new TokenBucket(timeNanosSupplier, getSettings().getCancellationRate(), getSettings().getCancellationBurst());
         this.timeNanosSupplier = timeNanosSupplier;
         this.cpuUsageSupplier = cpuUsageSupplier;
         this.heapUsageSupplier = heapUsageSupplier;
@@ -126,12 +123,12 @@ public class SearchBackpressureManager implements Runnable, TaskCompletionListen
 
         // Skip cancellation if the increase in heap usage is not due to search requests.
         long runningTasksHeapUsage = searchShardTasks.stream().mapToLong(task -> task.getTotalResourceStats().getMemoryInBytes()).sum();
-        if (runningTasksHeapUsage < heapSizeBytes * getSettings().getSearchHeapUsageThreshold()) {
+        if (runningTasksHeapUsage < getSettings().getSearchHeapUsageThresholdBytes()) {
             return;
         }
 
         // Calculate the maximum number of tasks to cancel based on the successful task completion rate.
-        int maxTasksToCancel = Math.max(1, (int) (currentIterationCompletedTasks.get() * Thresholds.MAX_TASK_CANCELLATION_PERCENTAGE));
+        int maxTasksToCancel = Math.max(1, (int) (currentIterationCompletedTasks.get() * getSettings().getCancellationRatio()));
         int currentIterationCancellationCount = 0;
 
         for (TaskCancellation taskCancellation : getTaskCancellations(searchShardTasks)) {

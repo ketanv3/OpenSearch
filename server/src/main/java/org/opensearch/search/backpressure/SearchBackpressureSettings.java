@@ -12,10 +12,19 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.monitor.jvm.JvmStats;
+
+import java.util.concurrent.TimeUnit;
 
 public class SearchBackpressureSettings {
+    private static final long heapSizeBytes = JvmStats.jvmStats().getMem().getHeapMax().getBytes();
+
     public interface Defaults {
         long INTERVAL = 1000;
+
+        double CANCELLATION_RATIO = 0.1;
+        double CANCELLATION_RATE = 3.0 / TimeUnit.SECONDS.toNanos(1);
+        double CANCELLATION_BURST = 10.0;
 
         boolean ENABLED = true;
         boolean ENFORCED = true;
@@ -37,6 +46,31 @@ public class SearchBackpressureSettings {
     public static final Setting<Long> SETTING_INTERVAL = Setting.longSetting(
         "search_backpressure.interval",
         Defaults.INTERVAL,
+        1,
+        Setting.Property.NodeScope
+    );
+
+    private final double cancellationRatio;
+    public static final Setting<Double> SETTING_CANCELLATION_RATIO = Setting.doubleSetting(
+        "search_backpressure.cancellation_ratio",
+        0.0,
+        1.0,
+        Setting.Property.NodeScope
+    );
+
+    private final double cancellationRate;
+    public static final Setting<Double> SETTING_CANCELLATION_RATE = Setting.doubleSetting(
+        "search_backpressure.cancellation_rate",
+        0.0,
+        1.0,
+        Setting.Property.NodeScope
+    );
+
+    private final double cancellationBurst;
+    public static final Setting<Double> SETTING_CANCELLATION_BURST = Setting.doubleSetting(
+        "search_backpressure.cancellation_burst",
+        0.0,
+        1.0,
         Setting.Property.NodeScope
     );
 
@@ -71,6 +105,7 @@ public class SearchBackpressureSettings {
         "search_backpressure.node_duress.cpu_threshold",
         Defaults.NODE_DURESS_CPU_THRESHOLD,
         0.0,
+        1.0,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
@@ -80,6 +115,7 @@ public class SearchBackpressureSettings {
         "search_backpressure.node_duress.heap_threshold",
         Defaults.NODE_DURESS_HEAP_THRESHOLD,
         0.0,
+        1.0,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
@@ -89,6 +125,7 @@ public class SearchBackpressureSettings {
         "search_backpressure.search_heap_usage_threshold",
         Defaults.SEARCH_HEAP_USAGE_THRESHOLD,
         0.0,
+        1.0,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
@@ -98,6 +135,7 @@ public class SearchBackpressureSettings {
         "search_backpressure.search_task_heap_usage_threshold",
         Defaults.SEARCH_TASK_HEAP_USAGE_THRESHOLD,
         0.0,
+        1.0,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
@@ -131,6 +169,9 @@ public class SearchBackpressureSettings {
 
     public SearchBackpressureSettings(Settings settings, ClusterSettings clusterSettings) {
         interval = new TimeValue(SETTING_INTERVAL.get(settings));
+        cancellationRatio = SETTING_CANCELLATION_RATIO.get(settings);
+        cancellationRate = SETTING_CANCELLATION_RATE.get(settings);
+        cancellationBurst = SETTING_CANCELLATION_BURST.get(settings);
 
         enabled = SETTING_ENABLED.get(settings);
         clusterSettings.addSettingsUpdateConsumer(SETTING_ENABLED, this::setEnabled);
@@ -165,6 +206,18 @@ public class SearchBackpressureSettings {
 
     public TimeValue getInterval() {
         return interval;
+    }
+
+    public double getCancellationRatio() {
+        return cancellationRatio;
+    }
+
+    public double getCancellationRate() {
+        return cancellationRate;
+    }
+
+    public double getCancellationBurst() {
+        return cancellationBurst;
     }
 
     public boolean isEnabled() {
@@ -211,12 +264,20 @@ public class SearchBackpressureSettings {
         return searchHeapUsageThreshold;
     }
 
+    public long getSearchHeapUsageThresholdBytes() {
+        return (long) (heapSizeBytes * getSearchHeapUsageThreshold());
+    }
+
     public void setSearchHeapUsageThreshold(double searchHeapUsageThreshold) {
         this.searchHeapUsageThreshold = searchHeapUsageThreshold;
     }
 
     public double getSearchTaskHeapUsageThreshold() {
         return searchTaskHeapUsageThreshold;
+    }
+
+    public long getSearchTaskHeapUsageThresholdBytes() {
+        return (long) (heapSizeBytes * getSearchTaskHeapUsageThreshold());
     }
 
     public void setSearchTaskHeapUsageThreshold(double searchTaskHeapUsageThreshold) {
