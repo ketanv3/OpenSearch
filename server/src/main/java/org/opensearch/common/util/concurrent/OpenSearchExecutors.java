@@ -40,8 +40,6 @@ import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.node.Node;
-import org.opensearch.threadpool.RunnableTaskExecutionListener;
-import org.opensearch.threadpool.TaskAwareRunnable;
 
 import java.util.List;
 import java.util.Optional;
@@ -57,7 +55,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 /**
@@ -180,31 +177,6 @@ public class OpenSearchExecutors {
         );
     }
 
-    public static OpenSearchThreadPoolExecutor newAutoQueueFixed(
-        String name,
-        int size,
-        int initialQueueCapacity,
-        int minQueueSize,
-        int maxQueueSize,
-        int frameSize,
-        TimeValue targetedResponseTime,
-        ThreadFactory threadFactory,
-        ThreadContext contextHolder
-    ) {
-        return newAutoQueueFixed(
-            name,
-            size,
-            initialQueueCapacity,
-            minQueueSize,
-            maxQueueSize,
-            frameSize,
-            targetedResponseTime,
-            threadFactory,
-            contextHolder,
-            null
-        );
-    }
-
     /**
      * Return a new executor that will automatically adjust the queue size based on queue throughput.
      *
@@ -213,7 +185,6 @@ public class OpenSearchExecutors {
      * @param minQueueSize minimum queue size that the queue can be adjusted to
      * @param maxQueueSize maximum queue size that the queue can be adjusted to
      * @param frameSize number of tasks during which stats are collected before adjusting queue size
-     * @param runnableTaskListener callback listener for a TaskAwareRunnable
      */
     public static OpenSearchThreadPoolExecutor newAutoQueueFixed(
         String name,
@@ -224,8 +195,7 @@ public class OpenSearchExecutors {
         int frameSize,
         TimeValue targetedResponseTime,
         ThreadFactory threadFactory,
-        ThreadContext contextHolder,
-        AtomicReference<RunnableTaskExecutionListener> runnableTaskListener
+        ThreadContext contextHolder
     ) {
         if (initialQueueCapacity <= 0) {
             throw new IllegalArgumentException(
@@ -238,16 +208,6 @@ public class OpenSearchExecutors {
             initialQueueCapacity
         );
 
-        Function<Runnable, WrappedRunnable> runnableWrapper;
-        if (runnableTaskListener != null) {
-            runnableWrapper = (runnable) -> {
-                TaskAwareRunnable taskAwareRunnable = new TaskAwareRunnable(contextHolder, runnable, runnableTaskListener);
-                return new TimedRunnable(taskAwareRunnable);
-            };
-        } else {
-            runnableWrapper = TimedRunnable::new;
-        }
-
         return new QueueResizingOpenSearchThreadPoolExecutor(
             name,
             size,
@@ -257,7 +217,7 @@ public class OpenSearchExecutors {
             queue,
             minQueueSize,
             maxQueueSize,
-            runnableWrapper,
+            TimedRunnable::new,
             frameSize,
             targetedResponseTime,
             threadFactory,

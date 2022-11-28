@@ -17,13 +17,11 @@ package org.opensearch.tasks;
  * @opensearch.internal
  */
 public class ThreadResourceInfo {
-    private final long threadId;
     private volatile boolean isActive = true;
     private final ResourceStatsType statsType;
     private final ResourceUsageInfo resourceUsageInfo;
 
-    public ThreadResourceInfo(long threadId, ResourceStatsType statsType, ResourceUsageMetric... resourceUsageMetrics) {
-        this.threadId = threadId;
+    public ThreadResourceInfo(ResourceStatsType statsType, ResourceUsageMetric... resourceUsageMetrics) {
         this.statsType = statsType;
         this.resourceUsageInfo = new ResourceUsageInfo(resourceUsageMetrics);
     }
@@ -47,16 +45,12 @@ public class ThreadResourceInfo {
         return statsType;
     }
 
-    public long getThreadId() {
-        return threadId;
-    }
-
     public ResourceUsageInfo getResourceUsageInfo() {
         return resourceUsageInfo;
     }
 
     @Override
     public String toString() {
-        return resourceUsageInfo + ", stats_type=" + statsType + ", is_active=" + isActive + ", threadId=" + threadId;
+        return resourceUsageInfo + ", stats_type=" + statsType + ", is_active=" + isActive;
     }
 }
