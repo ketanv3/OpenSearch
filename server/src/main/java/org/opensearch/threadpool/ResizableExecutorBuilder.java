@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A builder for resizable executors.
@@ -31,26 +30,12 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
 
     private final Setting<Integer> sizeSetting;
     private final Setting<Integer> queueSizeSetting;
-    private final AtomicReference<RunnableTaskExecutionListener> runnableTaskListener;
 
-    ResizableExecutorBuilder(
-        final Settings settings,
-        final String name,
-        final int size,
-        final int queueSize,
-        final AtomicReference<RunnableTaskExecutionListener> runnableTaskListener
-    ) {
-        this(settings, name, size, queueSize, "thread_pool." + name, runnableTaskListener);
+    ResizableExecutorBuilder(final Settings settings, final String name, final int size, final int queueSize) {
+        this(settings, name, size, queueSize, "thread_pool." + name);
     }
 
-    public ResizableExecutorBuilder(
-        final Settings settings,
-        final String name,
-        final int size,
-        final int queueSize,
-        final String prefix,
-        final AtomicReference<RunnableTaskExecutionListener> runnableTaskListener
-    ) {
+    public ResizableExecutorBuilder(final Settings settings, final String name, final int size, final int queueSize, final String prefix) {
         super(name);
         final String sizeKey = settingsKey(prefix, "size");
         this.sizeSetting = new Setting<>(
@@ -65,7 +50,6 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
             queueSize,
             new Setting.Property[] { Setting.Property.NodeScope, Setting.Property.Dynamic }
         );
-        this.runnableTaskListener = runnableTaskListener;
     }
 
     @Override
@@ -93,8 +77,7 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
             size,
             queueSize,
             threadFactory,
-            threadContext,
-            runnableTaskListener
+            threadContext
         );
         final ThreadPool.Info info = new ThreadPool.Info(
             name(),

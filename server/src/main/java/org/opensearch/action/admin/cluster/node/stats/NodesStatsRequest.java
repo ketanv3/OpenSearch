@@ -206,8 +206,7 @@ public class NodesStatsRequest extends BaseNodesRequest<NodesStatsRequest> {
         ADAPTIVE_SELECTION("adaptive_selection"),
         SCRIPT_CACHE("script_cache"),
         INDEXING_PRESSURE("indexing_pressure"),
-        SHARD_INDEXING_PRESSURE("shard_indexing_pressure"),
-        SEARCH_BACKPRESSURE("search_backpressure");
+        SHARD_INDEXING_PRESSURE("shard_indexing_pressure");
 
         private String metricName;
 
