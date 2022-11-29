@@ -60,6 +60,7 @@ import org.opensearch.common.util.concurrent.ConcurrentCollections;
 import org.opensearch.common.util.concurrent.ConcurrentMapLong;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.tasks.consumer.TopNSearchTasksLogger;
+import org.opensearch.tasks.tracking.TaskResourceTrackingService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TcpChannel;
 
@@ -130,6 +131,8 @@ public class TaskManager implements ClusterStateApplier {
     private volatile boolean taskResourceConsumersEnabled;
     private final Set<Consumer<Task>> taskResourceConsumer;
 
+    private final SetOnce<TaskResourceTrackingService> taskResourceTrackingService = new SetOnce<>();
+
     public static TaskManager createTaskManagerWithClusterSettings(
         Settings settings,
         ClusterSettings clusterSettings,
@@ -158,8 +161,17 @@ public class TaskManager implements ClusterStateApplier {
         this.cancellationService.set(taskCancellationService);
     }
 
+    public void setTaskResourceTrackingService(TaskResourceTrackingService taskResourceTrackingService) {
+        this.taskResourceTrackingService.set(taskResourceTrackingService);
+    }
+
     public void setTaskResourceConsumersEnabled(boolean taskResourceConsumersEnabled) {
         this.taskResourceConsumersEnabled = taskResourceConsumersEnabled;
+    }
+
+    // TODO: remove this indirection.
+    public ThreadContext.StoredContext setupTaskResourceTracking(Task task) {
+        return taskResourceTrackingService.get().setup(task);
     }
 
     /**

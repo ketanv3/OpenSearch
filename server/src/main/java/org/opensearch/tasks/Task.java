@@ -47,6 +47,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Current task information
@@ -54,6 +56,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @opensearch.internal
  */
 public class Task {
+    public static final String THREAD_CONTEXT_TASK = "TASK";
 
     private static final Logger logger = LogManager.getLogger(Task.class);
 
@@ -369,5 +372,12 @@ public class Task {
         } else {
             throw new IllegalStateException("response has to implement ToXContent to be able to store the results");
         }
+    }
+
+    /**
+     * Tasks that support resource tracking should override this and return true.
+     */
+    public boolean supportsResourceTracking() {
+        return false;
     }
 }

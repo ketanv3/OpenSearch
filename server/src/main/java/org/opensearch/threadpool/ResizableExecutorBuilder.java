@@ -77,7 +77,8 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
             size,
             queueSize,
             threadFactory,
-            threadContext
+            threadContext,
+            null
         );
         final ThreadPool.Info info = new ThreadPool.Info(
             name(),

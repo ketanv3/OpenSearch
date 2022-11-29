@@ -33,6 +33,7 @@
 package org.opensearch.common.util.concurrent;
 
 import org.opensearch.common.SuppressForbidden;
+import org.opensearch.tasks.tracking.TaskAwareRunnable;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -127,6 +128,10 @@ public class OpenSearchThreadPoolExecutor extends ThreadPoolExecutor {
     public void execute(Runnable command) {
         command = wrapRunnable(command);
         try {
+            if (command instanceof AbstractRunnable) {
+                ((AbstractRunnable) command).onSubmit();
+            }
+
             super.execute(command);
         } catch (OpenSearchRejectedExecutionException ex) {
             if (command instanceof AbstractRunnable) {

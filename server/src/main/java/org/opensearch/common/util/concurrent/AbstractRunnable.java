@@ -58,6 +58,13 @@ public abstract class AbstractRunnable implements Runnable {
     }
 
     /**
+     * This method is called when the runnable is submitted for execution.
+     */
+    public void onSubmit() {
+        // nothing by default
+    }
+
+    /**
      * This method is called in a finally block after successful execution
      * or on a rejection.
      */

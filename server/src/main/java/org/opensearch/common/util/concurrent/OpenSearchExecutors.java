@@ -40,6 +40,7 @@ import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.node.Node;
+import org.opensearch.tasks.tracking.TaskAwareRunnable;
 
 import java.util.List;
 import java.util.Optional;
@@ -182,11 +183,18 @@ public class OpenSearchExecutors {
         int size,
         int queueCapacity,
         ThreadFactory threadFactory,
-        ThreadContext contextHolder
+        ThreadContext contextHolder,
+        TaskAwareRunnable.Listener listener
     ) {
-
         if (queueCapacity <= 0) {
             throw new IllegalArgumentException("queue capacity for [" + name + "] executor must be positive, got: " + queueCapacity);
+        }
+
+        Function<Runnable, WrappedRunnable> wrapper;
+        if (listener != null) {
+            wrapper = original -> new TimedRunnable(new TaskAwareRunnable(contextHolder, original, listener));
+        } else {
+            wrapper = TimedRunnable::new;
         }
 
         return new QueueResizableOpenSearchThreadPoolExecutor(
@@ -196,7 +204,7 @@ public class OpenSearchExecutors {
             0,
             TimeUnit.MILLISECONDS,
             new ResizableBlockingQueue<>(ConcurrentCollections.<Runnable>newBlockingQueue(), queueCapacity),
-            TimedRunnable::new,
+            wrapper,
             threadFactory,
             new OpenSearchAbortPolicy(),
             contextHolder

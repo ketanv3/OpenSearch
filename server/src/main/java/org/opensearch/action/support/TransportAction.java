@@ -40,6 +40,7 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.lease.Releasables;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskCancelledException;
 import org.opensearch.tasks.TaskId;
@@ -99,25 +100,29 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
             unregisterChildNode.close();
             throw e;
         }
-        execute(task, request, new ActionListener<Response>() {
-            @Override
-            public void onResponse(Response response) {
-                try {
-                    Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
-                } finally {
-                    listener.onResponse(response);
-                }
-            }
 
-            @Override
-            public void onFailure(Exception e) {
-                try {
-                    Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
-                } finally {
-                    listener.onFailure(e);
+        try (ThreadContext.StoredContext ignored = taskManager.setupTaskResourceTracking(task)) {
+            execute(task, request, new ActionListener<Response>() {
+                @Override
+                public void onResponse(Response response) {
+                    try {
+                        Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
+                    } finally {
+                        listener.onResponse(response);
+                    }
                 }
-            }
-        });
+
+                @Override
+                public void onFailure(Exception e) {
+                    try {
+                        Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
+                    } finally {
+                        listener.onFailure(e);
+                    }
+                }
+            });
+        }
+
         return task;
     }
 
@@ -134,25 +139,29 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
             unregisterChildNode.close();
             throw e;
         }
-        execute(task, request, new ActionListener<Response>() {
-            @Override
-            public void onResponse(Response response) {
-                try {
-                    Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
-                } finally {
-                    listener.onResponse(task, response);
-                }
-            }
 
-            @Override
-            public void onFailure(Exception e) {
-                try {
-                    Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
-                } finally {
-                    listener.onFailure(task, e);
+        try (ThreadContext.StoredContext ignored = taskManager.setupTaskResourceTracking(task)) {
+            execute(task, request, new ActionListener<Response>() {
+                @Override
+                public void onResponse(Response response) {
+                    try {
+                        Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
+                    } finally {
+                        listener.onResponse(task, response);
+                    }
                 }
-            }
-        });
+
+                @Override
+                public void onFailure(Exception e) {
+                    try {
+                        Releasables.close(unregisterChildNode, () -> taskManager.unregister(task));
+                    } finally {
+                        listener.onFailure(task, e);
+                    }
+                }
+            });
+        }
+
         return task;
     }
 

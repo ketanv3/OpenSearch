@@ -45,6 +45,7 @@ import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.http.HttpTransportSettings;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.tracking.TaskAwareRunnable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -135,16 +136,25 @@ public final class ThreadContext implements Writeable {
          * This is needed so the DeprecationLogger in another thread can see the value of X-Opaque-ID provided by a user.
          * Otherwise when context is stash, it should be empty.
          */
+        ThreadContextStruct threadContextStruct = DEFAULT_CONTEXT;
+
         if (context.requestHeaders.containsKey(Task.X_OPAQUE_ID)) {
-            ThreadContextStruct threadContextStruct = DEFAULT_CONTEXT.putHeaders(
+            threadContextStruct = threadContextStruct.putHeaders(
                 MapBuilder.<String, String>newMapBuilder()
                     .put(Task.X_OPAQUE_ID, context.requestHeaders.get(Task.X_OPAQUE_ID))
                     .immutableMap()
             );
-            threadLocal.set(threadContextStruct);
-        } else {
-            threadLocal.set(DEFAULT_CONTEXT);
         }
+
+        if (context.transientHeaders.containsKey(Task.THREAD_CONTEXT_TASK)) {
+            threadContextStruct.putTransient(
+                Task.THREAD_CONTEXT_TASK,
+                context.transientHeaders.get(Task.THREAD_CONTEXT_TASK)
+            );
+        }
+
+        threadLocal.set(threadContextStruct);
+
         return () -> {
             // If the node and thus the threadLocal get closed while this task
             // is still executing, we don't want this runnable to fail with an
