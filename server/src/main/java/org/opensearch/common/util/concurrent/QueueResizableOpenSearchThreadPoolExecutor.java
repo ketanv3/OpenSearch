@@ -97,7 +97,7 @@ public final class QueueResizableOpenSearchThreadPoolExecutor extends OpenSearch
         ThreadContext contextHolder,
         double ewmaAlpha
     ) {
-        super(name, corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler, contextHolder);
+        super(name, corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler, contextHolder, null);
         this.workQueue = workQueue;
         this.runnableWrapper = runnableWrapper;
         this.executionEWMA = new ExponentiallyWeightedMovingAverage(ewmaAlpha, 0);

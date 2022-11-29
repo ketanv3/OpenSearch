@@ -88,7 +88,7 @@ public final class QueueResizingOpenSearchThreadPoolExecutor extends OpenSearchT
         XRejectedExecutionHandler handler,
         ThreadContext contextHolder
     ) {
-        super(name, corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler, contextHolder);
+        super(name, corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler, contextHolder, null);
         this.runnableWrapper = runnableWrapper;
         this.workQueue = workQueue;
         this.tasksPerFrame = tasksPerFrame;

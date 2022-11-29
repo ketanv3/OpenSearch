@@ -32,13 +32,17 @@
 
 package org.opensearch.common.util.concurrent;
 
+import org.opensearch.ExceptionsHelper;
 import org.opensearch.common.SuppressForbidden;
 import org.opensearch.tasks.tracking.TaskAwareRunnable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
@@ -50,6 +54,7 @@ public class OpenSearchThreadPoolExecutor extends ThreadPoolExecutor {
 
     private final ThreadContext contextHolder;
     private volatile ShutdownListener listener;
+    private final List<RunnableListener> runnableListeners;
 
     private final Object monitor = new Object();
     /**
@@ -69,7 +74,8 @@ public class OpenSearchThreadPoolExecutor extends ThreadPoolExecutor {
         TimeUnit unit,
         BlockingQueue<Runnable> workQueue,
         ThreadFactory threadFactory,
-        ThreadContext contextHolder
+        ThreadContext contextHolder,
+        List<RunnableListener> runnableListeners
     ) {
         this(
             name,
@@ -80,7 +86,8 @@ public class OpenSearchThreadPoolExecutor extends ThreadPoolExecutor {
             workQueue,
             threadFactory,
             new OpenSearchAbortPolicy(),
-            contextHolder
+            contextHolder,
+            runnableListeners
         );
     }
 
@@ -94,11 +101,13 @@ public class OpenSearchThreadPoolExecutor extends ThreadPoolExecutor {
         BlockingQueue<Runnable> workQueue,
         ThreadFactory threadFactory,
         XRejectedExecutionHandler handler,
-        ThreadContext contextHolder
+        ThreadContext contextHolder,
+        List<RunnableListener> runnableListeners
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
         this.name = name;
         this.contextHolder = contextHolder;
+        this.runnableListeners = runnableListeners;
     }
 
     @Override
@@ -128,11 +137,9 @@ public class OpenSearchThreadPoolExecutor extends ThreadPoolExecutor {
     public void execute(Runnable command) {
         command = wrapRunnable(command);
         try {
-            if (command instanceof AbstractRunnable) {
-                ((AbstractRunnable) command).onSubmit();
-            }
-
             super.execute(command);
+            Runnable finalCommand = command;
+            notifyListeners(l -> l.onRunnableSubmit(finalCommand));
         } catch (OpenSearchRejectedExecutionException ex) {
             if (command instanceof AbstractRunnable) {
                 // If we are an abstract runnable we can handle the rejection
@@ -150,7 +157,14 @@ public class OpenSearchThreadPoolExecutor extends ThreadPoolExecutor {
     }
 
     @Override
+    protected void beforeExecute(Thread t, Runnable r) {
+        super.beforeExecute(t, r);
+        notifyListeners(l -> l.onRunnableStart(r));
+    }
+
+    @Override
     protected void afterExecute(Runnable r, Throwable t) {
+        notifyListeners(l -> l.onRunnableComplete(r));
         super.afterExecute(r, t);
         OpenSearchExecutors.rethrowErrors(unwrap(r));
         assert assertDefaultContext(r);
@@ -208,5 +222,19 @@ public class OpenSearchThreadPoolExecutor extends ThreadPoolExecutor {
 
     protected Runnable unwrap(Runnable runnable) {
         return contextHolder.unwrap(runnable);
+    }
+
+    public interface RunnableListener {
+        void onRunnableSubmit(Runnable runnable);
+        void onRunnableStart(Runnable runnable);
+        void onRunnableComplete(Runnable runnable);
+    }
+
+    private void notifyListeners(Consumer<RunnableListener> fn) {
+        if (runnableListeners == null) {
+            return;
+        }
+
+        runnableListeners.forEach(fn);
     }
 }

@@ -146,7 +146,8 @@ public class OpenSearchExecutors {
             queue,
             threadFactory,
             new ForceQueuePolicy(),
-            contextHolder
+            contextHolder,
+            null
         );
         queue.executor = executor;
         return executor;
@@ -174,7 +175,8 @@ public class OpenSearchExecutors {
             queue,
             threadFactory,
             new OpenSearchAbortPolicy(),
-            contextHolder
+            contextHolder,
+            null
         );
     }
 
