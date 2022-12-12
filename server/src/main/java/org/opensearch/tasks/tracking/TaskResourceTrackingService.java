@@ -11,9 +11,12 @@ package org.opensearch.tasks.tracking;
 import com.sun.management.ThreadMXBean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.util.concurrent.ConcurrentCollections;
+import org.opensearch.common.util.concurrent.OpenSearchThreadPoolExecutor;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.common.util.concurrent.WrappedRunnable;
 import org.opensearch.tasks.ResourceStats;
 import org.opensearch.tasks.ResourceStatsType;
 import org.opensearch.tasks.ResourceUsageMetric;
@@ -25,7 +28,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class TaskResourceTrackingService implements TaskAwareRunnable.Listener {
+public class TaskResourceTrackingService implements OpenSearchThreadPoolExecutor.RunnableListener {
     private static final Logger logger = LogManager.getLogger(TaskResourceTrackingService.class);
     private static final ThreadMXBean threadMXBean = (ThreadMXBean) ManagementFactory.getThreadMXBean();
 
@@ -63,11 +66,12 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener {
         ThreadContext.StoredContext storedContext = context.newStoredContext(true, Collections.singletonList(Task.THREAD_CONTEXT_TASK));
         context.putTransient(Task.THREAD_CONTEXT_TASK, task);
 
+        TaskAwareRunnable marker = new TaskAwareRunnable(context, () -> {});
         onTaskStarted(task);
-        onRunnableStarted(task, Thread.currentThread().getId());
+        onRunnableStart(marker);
 
         return () -> {
-            onRunnableCompleted(task, Thread.currentThread().getId());
+            onRunnableComplete(marker);
             storedContext.restore();
         };
     }
@@ -75,39 +79,58 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener {
     public void onTaskStarted(Task task) {
         // Setting the initial count to one to account for the thread that actually started this task.
         runnableCount.put(task, new AtomicInteger(1));
+        log("task start", task, null);
     }
 
     public void onTaskCompleted(Task task) {
         runnableCount.remove(task);
-        logger.info("task completed: {} {} {}", task.getAction(), task.getId(), task.getTotalResourceStats());
+        log("task complete", task, null);
     }
 
     @Override
-    public void onRunnableSubmitted(Task task, long threadId) {
+    public void onRunnableSubmit(Runnable runnable) {
+        Task task = getTask(runnable);
+        log("runnable submit", task, runnable);
+        if (task == null) {
+            return;
+        }
+
         validate(task);
         runnableCount.get(task).incrementAndGet();
     }
 
     @Override
-    public void onRunnableStarted(Task task, long threadId) {
+    public void onRunnableStart(Runnable runnable) {
+        Task task = getTask(runnable);
+        log("runnable start", task, runnable);
+        if (task == null) {
+            return;
+        }
+
         validate(task);
         task.startThreadResourceTracking(
-            threadId,
+            Thread.currentThread().getId(),
             ResourceStatsType.WORKER_STATS,
-            getThreadResourceUsageMetrics(threadId)
+            getThreadResourceUsageMetrics(Thread.currentThread().getId())
         );
     }
 
     @Override
-    public void onRunnableCompleted(Task task, long threadId) {
+    public void onRunnableComplete(Runnable runnable) {
+        Task task = getTask(runnable);
+        log("runnable complete", task, runnable);
+        if (task == null) {
+            return;
+        }
+
         validate(task);
         int count = runnableCount.get(task).decrementAndGet();
         assert count >= 0 : "thread count cannot be negative";
 
         task.stopThreadResourceTracking(
-            threadId,
+            Thread.currentThread().getId(),
             ResourceStatsType.WORKER_STATS,
-            getThreadResourceUsageMetrics(threadId)
+            getThreadResourceUsageMetrics(Thread.currentThread().getId())
         );
 
         if (count == 0) {
@@ -115,11 +138,31 @@ public class TaskResourceTrackingService implements TaskAwareRunnable.Listener {
         }
     }
 
+    @Nullable
+    private Task getTask(Runnable runnable) {
+        Runnable original = runnable;
+
+        while (runnable instanceof WrappedRunnable) {
+            if (runnable instanceof TaskAwareRunnable) {
+                log("found runnable", null, ((TaskAwareRunnable) runnable).unwrap());
+                return ((TaskAwareRunnable) runnable).getTask();
+            }
+
+            runnable = ((WrappedRunnable) runnable).unwrap();
+        }
+
+        return null;
+    }
+
     private void validate(Task task) {
         assert runnableCount.containsKey(task) : "task must be present";
     }
 
-    private ResourceUsageMetric[] getThreadResourceUsageMetrics(long threadId) {
+    private void log(String name, Task task, Runnable runnable) {
+        logger.info("thread={} msg={} task={} runnable={}", Thread.currentThread().getId(), name, task, runnable);
+    }
+
+    private static ResourceUsageMetric[] getThreadResourceUsageMetrics(long threadId) {
         return new ResourceUsageMetric[] {
             new ResourceUsageMetric(ResourceStats.CPU, threadMXBean.getThreadCpuTime(threadId)),
             new ResourceUsageMetric(ResourceStats.MEMORY, threadMXBean.getThreadAllocatedBytes(threadId))

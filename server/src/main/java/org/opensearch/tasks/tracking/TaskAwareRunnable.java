@@ -21,12 +21,10 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
     private final Task task; // May be null when task resource tracking is disabled.
 
     private final Runnable original;
-    private final Listener listener;
 
-    public TaskAwareRunnable(ThreadContext threadContext, Runnable original, Listener listener) {
+    public TaskAwareRunnable(ThreadContext threadContext, Runnable original) {
         this.task = threadContext.getTransient(Task.THREAD_CONTEXT_TASK);
         this.original = original;
-        this.listener = listener;
     }
 
     @Override
@@ -51,26 +49,8 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
     }
 
     @Override
-    public void onSubmit() {
-        if (task != null) {
-            listener.onRunnableSubmitted(task, Thread.currentThread().getId());
-        }
-    }
-
-    @Override
     protected void doRun() throws Exception {
-        if (task != null) {
-            listener.onRunnableStarted(task, Thread.currentThread().getId());
-        }
-
         original.run();
-    }
-
-    @Override
-    public void onAfter() {
-        if (task != null) {
-            listener.onRunnableCompleted(task, Thread.currentThread().getId());
-        }
     }
 
     @Override
@@ -78,11 +58,7 @@ public class TaskAwareRunnable extends AbstractRunnable implements WrappedRunnab
         return original;
     }
 
-    public interface Listener {
-        void onRunnableSubmitted(Task task, long threadId);
-
-        void onRunnableStarted(Task task, long threadId);
-
-        void onRunnableCompleted(Task task, long threadId);
+    public Task getTask() {
+        return task;
     }
 }

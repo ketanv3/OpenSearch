@@ -10,6 +10,7 @@ package org.opensearch.common.util.concurrent;
 
 import org.opensearch.common.ExponentiallyWeightedMovingAverage;
 
+import java.util.List;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -51,7 +52,8 @@ public final class QueueResizableOpenSearchThreadPoolExecutor extends OpenSearch
         Function<Runnable, WrappedRunnable> runnableWrapper,
         ThreadFactory threadFactory,
         XRejectedExecutionHandler handler,
-        ThreadContext contextHolder
+        ThreadContext contextHolder,
+        List<RunnableListener> runnableListeners
     ) {
         this(
             name,
@@ -64,7 +66,8 @@ public final class QueueResizableOpenSearchThreadPoolExecutor extends OpenSearch
             threadFactory,
             handler,
             contextHolder,
-            EWMA_ALPHA
+            EWMA_ALPHA,
+            runnableListeners
         );
     }
 
@@ -95,9 +98,10 @@ public final class QueueResizableOpenSearchThreadPoolExecutor extends OpenSearch
         ThreadFactory threadFactory,
         XRejectedExecutionHandler handler,
         ThreadContext contextHolder,
-        double ewmaAlpha
+        double ewmaAlpha,
+        List<RunnableListener> runnableListeners
     ) {
-        super(name, corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler, contextHolder, null);
+        super(name, corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler, contextHolder, runnableListeners);
         this.workQueue = workQueue;
         this.runnableWrapper = runnableWrapper;
         this.executionEWMA = new ExponentiallyWeightedMovingAverage(ewmaAlpha, 0);

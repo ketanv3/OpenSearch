@@ -40,7 +40,8 @@ public class QueueResizableOpenSearchThreadPoolExecutorTests extends OpenSearchT
             fastWrapper(),
             OpenSearchExecutors.daemonThreadFactory("queuetest"),
             new OpenSearchAbortPolicy(),
-            context
+            context,
+            null
         );
         executor.prestartAllCoreThreads();
         logger.info("--> executor: {}", executor);
@@ -71,7 +72,8 @@ public class QueueResizableOpenSearchThreadPoolExecutorTests extends OpenSearchT
             fastWrapper(),
             OpenSearchExecutors.daemonThreadFactory("queuetest"),
             new OpenSearchAbortPolicy(),
-            context
+            context,
+            null
         );
         executor.prestartAllCoreThreads();
         logger.info("--> executor: {}", executor);
@@ -102,7 +104,8 @@ public class QueueResizableOpenSearchThreadPoolExecutorTests extends OpenSearchT
             fastWrapper(),
             OpenSearchExecutors.daemonThreadFactory("queuetest"),
             new OpenSearchAbortPolicy(),
-            context
+            context,
+            null
         );
         executor.prestartAllCoreThreads();
         logger.info("--> executor: {}", executor);
@@ -130,7 +133,8 @@ public class QueueResizableOpenSearchThreadPoolExecutorTests extends OpenSearchT
             fastWrapper(),
             OpenSearchExecutors.daemonThreadFactory("queuetest"),
             new OpenSearchAbortPolicy(),
-            context
+            context,
+            null
         );
         executor.prestartAllCoreThreads();
         logger.info("--> executor: {}", executor);
@@ -166,7 +170,8 @@ public class QueueResizableOpenSearchThreadPoolExecutorTests extends OpenSearchT
             exceptionalWrapper(),
             OpenSearchExecutors.daemonThreadFactory("queuetest"),
             new OpenSearchAbortPolicy(),
-            context
+            context,
+            null
         );
         executor.prestartAllCoreThreads();
         logger.info("--> executor: {}", executor);

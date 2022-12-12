@@ -137,9 +137,9 @@ public class OpenSearchThreadPoolExecutor extends ThreadPoolExecutor {
     public void execute(Runnable command) {
         command = wrapRunnable(command);
         try {
-            super.execute(command);
             Runnable finalCommand = command;
             notifyListeners(l -> l.onRunnableSubmit(finalCommand));
+            super.execute(command);
         } catch (OpenSearchRejectedExecutionException ex) {
             if (command instanceof AbstractRunnable) {
                 // If we are an abstract runnable we can handle the rejection

@@ -35,6 +35,7 @@ package org.opensearch.threadpool;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
+import org.opensearch.common.util.concurrent.OpenSearchThreadPoolExecutor.RunnableListener;
 import org.opensearch.common.util.concurrent.ThreadContext;
 
 import java.util.List;
@@ -92,7 +93,7 @@ public abstract class ExecutorBuilder<U extends ExecutorBuilder.ExecutorSettings
      * @param threadContext the current thread context
      * @return a new executor built from the specified executor settings
      */
-    abstract ThreadPool.ExecutorHolder build(U settings, ThreadContext threadContext);
+    abstract ThreadPool.ExecutorHolder build(U settings, ThreadContext threadContext, List<RunnableListener> runnableListeners);
 
     /**
      * Format the thread pool info object for this executor.

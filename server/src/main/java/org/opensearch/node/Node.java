@@ -794,6 +794,7 @@ public class Node implements Closeable {
             clusterService.setIndexingPressureService(indexingPressureService);
 
             final TaskResourceTrackingService taskResourceTrackingService = new TaskResourceTrackingService(threadPool);
+            threadPool.addRunnableListener(taskResourceTrackingService);
 
             final RecoverySettings recoverySettings = new RecoverySettings(settings, settingsModule.getClusterSettings());
             RepositoriesModule repositoriesModule = new RepositoriesModule(

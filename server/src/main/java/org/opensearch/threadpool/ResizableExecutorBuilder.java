@@ -12,6 +12,8 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.SizeValue;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
+import org.opensearch.common.util.concurrent.OpenSearchThreadPoolExecutor;
+import org.opensearch.common.util.concurrent.OpenSearchThreadPoolExecutor.RunnableListener;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.node.Node;
 
@@ -66,7 +68,7 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
     }
 
     @Override
-    ThreadPool.ExecutorHolder build(final ResizableExecutorSettings settings, final ThreadContext threadContext) {
+    ThreadPool.ExecutorHolder build(final ResizableExecutorSettings settings, final ThreadContext threadContext, List<RunnableListener> runnableListeners) {
         int size = settings.size;
         int queueSize = settings.queueSize;
         final ThreadFactory threadFactory = OpenSearchExecutors.daemonThreadFactory(
@@ -78,7 +80,7 @@ public final class ResizableExecutorBuilder extends ExecutorBuilder<ResizableExe
             queueSize,
             threadFactory,
             threadContext,
-            null
+            runnableListeners
         );
         final ThreadPool.Info info = new ThreadPool.Info(
             name(),

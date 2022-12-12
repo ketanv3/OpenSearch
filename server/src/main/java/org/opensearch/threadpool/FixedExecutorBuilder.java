@@ -36,6 +36,8 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.SizeValue;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
+import org.opensearch.common.util.concurrent.OpenSearchThreadPoolExecutor;
+import org.opensearch.common.util.concurrent.OpenSearchThreadPoolExecutor.RunnableListener;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.node.Node;
 
@@ -143,7 +145,7 @@ public final class FixedExecutorBuilder extends ExecutorBuilder<FixedExecutorBui
     }
 
     @Override
-    ThreadPool.ExecutorHolder build(final FixedExecutorSettings settings, final ThreadContext threadContext) {
+    ThreadPool.ExecutorHolder build(final FixedExecutorSettings settings, final ThreadContext threadContext, List<RunnableListener> runnableListeners) {
         int size = settings.size;
         int queueSize = settings.queueSize;
         final ThreadFactory threadFactory = OpenSearchExecutors.daemonThreadFactory(
