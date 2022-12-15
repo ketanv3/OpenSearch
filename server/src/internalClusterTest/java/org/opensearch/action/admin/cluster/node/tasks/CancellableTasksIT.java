@@ -332,7 +332,7 @@ public class CancellableTasksIT extends OpenSearchIntegTestCase {
                             final TaskInfo taskInfo = task.taskInfo(transportService.getLocalNode().getId(), false);
                             assertTrue(taskInfo.toString(), task.isCancelled());
                             assertNotNull(taskInfo.toString(), task.getReasonCancelled());
-                            assertThat(taskInfo.toString(), task.getReasonCancelled(), equalTo("channel was closed"));
+                            assertThat(taskInfo.toString(), task.getReasonCancelled().getMessage(), equalTo("channel was closed"));
                         }
                     }
                 }

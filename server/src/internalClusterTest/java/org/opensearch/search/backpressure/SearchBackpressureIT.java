@@ -32,6 +32,7 @@ import org.opensearch.search.backpressure.settings.SearchShardTaskSettings;
 import org.opensearch.search.backpressure.trackers.CpuUsageTracker;
 import org.opensearch.search.backpressure.trackers.ElapsedTimeTracker;
 import org.opensearch.search.backpressure.trackers.HeapUsageTracker;
+import org.opensearch.tasks.CancellableTask;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskCancelledException;
 import org.opensearch.tasks.TaskId;
@@ -264,7 +265,8 @@ public class SearchBackpressureIT extends OpenSearchIntegTestCase {
                         && (System.nanoTime() - startTime) < TIMEOUT.getNanos());
 
                     if (searchShardTask.isCancelled()) {
-                        throw new TaskCancelledException(searchShardTask.getReasonCancelled());
+                        CancellableTask.Reason reason = searchShardTask.getReasonCancelled();
+                        throw new TaskCancelledException(reason.getMessage(), reason.getStatus());
                     } else {
                         listener.onResponse(new TestResponse());
                     }
