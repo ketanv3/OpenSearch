@@ -125,6 +125,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -1115,7 +1116,7 @@ public class QueryPhaseTests extends IndexShardTestCase {
                 context.parsedQuery(new ParsedQuery(prefixQuery));
                 SearchShardTask task = mock(SearchShardTask.class);
                 when(task.isCancelled()).thenReturn(true);
-                when(task.getReasonCancelled()).thenReturn(new CancellableTask.Reason(""));
+                doReturn(new CancellableTask.Reason("")).when(task).getReasonCancelled();
                 context.setTask(task);
                 expectThrows(TaskCancelledException.class, () -> new QueryPhase().preProcess(context));
             }
