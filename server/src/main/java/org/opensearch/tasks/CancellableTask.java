@@ -112,6 +112,12 @@ public abstract class CancellableTask extends Task {
         return reasonReference.get();
     }
 
+    @Nullable
+    public final String getReasonCancelledMessage() {
+        Reason reason = reasonReference.get();
+        return reason != null ? reason.getMessage() : null;
+    }
+
     /**
      * Called after the task is cancelled so that it can take any actions that it has to take.
      */

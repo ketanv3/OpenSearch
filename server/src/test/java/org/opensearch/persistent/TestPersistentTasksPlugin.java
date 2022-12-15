@@ -418,7 +418,7 @@ public class TestPersistentTasksPlugin extends Plugin implements ActionPlugin, P
                                 task.markAsCompleted();
                             }
                         } else {
-                            task.markAsFailed(new RuntimeException(testTask.getReasonCancelled().getMessage()));
+                            task.markAsFailed(new RuntimeException(testTask.getReasonCancelledMessage()));
                         }
                         return;
                     } else {
