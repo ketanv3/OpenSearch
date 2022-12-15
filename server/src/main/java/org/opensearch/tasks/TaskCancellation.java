@@ -9,6 +9,7 @@
 package org.opensearch.tasks;
 
 import org.opensearch.ExceptionsHelper;
+import org.opensearch.rest.RestStatus;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,11 +27,13 @@ public class TaskCancellation implements Comparable<TaskCancellation> {
     private final CancellableTask task;
     private final List<Reason> reasons;
     private final List<Runnable> onCancelCallbacks;
+    private final RestStatus status;
 
-    public TaskCancellation(CancellableTask task, List<Reason> reasons, List<Runnable> onCancelCallbacks) {
+    public TaskCancellation(CancellableTask task, List<Reason> reasons, List<Runnable> onCancelCallbacks, RestStatus status) {
         this.task = task;
         this.reasons = reasons;
         this.onCancelCallbacks = onCancelCallbacks;
+        this.status = status;
     }
 
     public CancellableTask getTask() {
@@ -53,7 +56,7 @@ public class TaskCancellation implements Comparable<TaskCancellation> {
             return;
         }
 
-        task.cancel(getReasonString());
+        task.cancel(new CancellableTask.Reason(getReasonString(), status));
 
         List<Exception> exceptions = new ArrayList<>();
         for (Runnable callback : onCancelCallbacks) {

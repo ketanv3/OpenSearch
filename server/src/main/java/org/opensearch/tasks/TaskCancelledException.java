@@ -32,7 +32,10 @@
 package org.opensearch.tasks;
 
 import org.opensearch.OpenSearchException;
+import org.opensearch.Version;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
 
@@ -42,12 +45,38 @@ import java.io.IOException;
  * @opensearch.internal
  */
 public class TaskCancelledException extends OpenSearchException {
+    private final RestStatus status;
 
     public TaskCancelledException(String msg) {
+        this(msg, RestStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    public TaskCancelledException(String msg, RestStatus status) {
         super(msg);
+        this.status = status;
     }
 
     public TaskCancelledException(StreamInput in) throws IOException {
         super(in);
+
+        if (in.getVersion().onOrAfter(Version.V_3_0_0)) {
+            this.status = RestStatus.readFrom(in);
+        } else {
+            this.status = RestStatus.INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        super.writeTo(out);
+
+        if (out.getVersion().onOrAfter(Version.V_3_0_0)) {
+            RestStatus.writeTo(out, status);
+        }
+    }
+
+    @Override
+    public RestStatus status() {
+        return this.status;
     }
 }

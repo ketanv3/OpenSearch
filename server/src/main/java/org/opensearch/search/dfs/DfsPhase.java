@@ -42,6 +42,7 @@ import org.apache.lucene.search.TermStatistics;
 import org.opensearch.common.collect.HppcMaps;
 import org.opensearch.search.internal.SearchContext;
 import org.opensearch.search.rescore.RescoreContext;
+import org.opensearch.tasks.CancellableTask;
 import org.opensearch.tasks.TaskCancelledException;
 
 import java.io.IOException;
@@ -64,7 +65,8 @@ public class DfsPhase {
                 @Override
                 public TermStatistics termStatistics(Term term, int docFreq, long totalTermFreq) throws IOException {
                     if (context.isCancelled()) {
-                        throw new TaskCancelledException("cancelled task with reason: " + context.getTask().getReasonCancelled());
+                        CancellableTask.Reason reason = context.getTask().getReasonCancelled();
+                        throw new TaskCancelledException("cancelled task with reason: " + reason.getMessage(), reason.getStatus());
                     }
                     TermStatistics ts = super.termStatistics(term, docFreq, totalTermFreq);
                     if (ts != null) {
@@ -76,7 +78,8 @@ public class DfsPhase {
                 @Override
                 public CollectionStatistics collectionStatistics(String field) throws IOException {
                     if (context.isCancelled()) {
-                        throw new TaskCancelledException("cancelled task with reason: " + context.getTask().getReasonCancelled());
+                        CancellableTask.Reason reason = context.getTask().getReasonCancelled();
+                        throw new TaskCancelledException("cancelled task with reason: " + reason.getMessage(), reason.getStatus());
                     }
                     CollectionStatistics cs = super.collectionStatistics(field);
                     if (cs != null) {
