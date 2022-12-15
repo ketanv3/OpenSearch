@@ -1115,7 +1115,7 @@ public class QueryPhaseTests extends IndexShardTestCase {
                 PrefixQuery prefixQuery = new PrefixQuery(new Term("foo", "a"), MultiTermQuery.SCORING_BOOLEAN_REWRITE);
                 context.parsedQuery(new ParsedQuery(prefixQuery));
                 SearchShardTask task = mock(SearchShardTask.class);
-                when(task.isCancelled()).thenReturn(true);
+                doReturn(true).when(task).isCancelled();
                 doReturn(new CancellableTask.Reason("")).when(task).getReasonCancelled();
                 context.setTask(task);
                 expectThrows(TaskCancelledException.class, () -> new QueryPhase().preProcess(context));
