@@ -1151,7 +1151,7 @@ public class RoundingTests extends OpenSearchTestCase {
         }
 
         Rounding.Prepared binarySearchImpl = new Rounding.BinarySearchArrayRounding(values, length, null);
-        Rounding.Prepared linearSearchImpl = new Rounding.BidirectionalLinearSearchArrayRounding(values, length, null);
+        Rounding.Prepared linearSearchImpl = new BidirectionalLinearSearchArrayRounding(values, length, null);
 
         for (int i = 0; i < 100000; i++) {
             long key = values[0] + (randomNonNegativeLong() % (100 + values[length - 1] - values[0]));

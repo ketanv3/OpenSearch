@@ -78,6 +78,8 @@ import org.opensearch.cluster.routing.RerouteService;
 import org.opensearch.cluster.routing.allocation.AwarenessReplicaBalance;
 import org.opensearch.cluster.routing.allocation.DiskThresholdMonitor;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.BidirectionalLinearSearchArrayRounding;
+import org.opensearch.common.Rounding;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.inject.Injector;
@@ -248,17 +250,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -399,6 +391,21 @@ public class Node implements Closeable {
 
     public Node(Environment environment) {
         this(environment, Collections.emptyList(), true);
+
+        Random random = new Random();
+        int length = 1 + Math.abs(random.nextInt()) % 255;
+        long[] values = new long[length];
+        for (int i = 1; i < values.length; i++) {
+            values[i] = values[i - 1] + (Math.abs(random.nextLong()) % 100);
+        }
+
+        Rounding.Prepared binarySearchImpl = new Rounding.BinarySearchArrayRounding(values, length, null);
+        Rounding.Prepared linearSearchImpl = new BidirectionalLinearSearchArrayRounding(values, length, null);
+
+        for (int i = 0; i < 100000; i++) {
+            long key = values[0] + (Math.abs(random.nextLong()) % (100 + values[length - 1] - values[0]));
+            assert binarySearchImpl.round(key) == linearSearchImpl.round(key);
+        }
     }
 
     /**
