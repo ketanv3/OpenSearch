@@ -130,10 +130,10 @@ public class ArrayRoundingBenchmark {
 
             switch (type) {
                 case "binary":
-                    supplier = () -> new Rounding.BinarySearchArrayRounding(values, size, null);
+                    supplier = () -> new BinarySearchArrayRounding(values, size, null);
                     break;
                 case "linear":
-                    supplier = () -> new Rounding.BidirectionalLinearSearchArrayRounding(values, size, null);
+                    supplier = () -> new BidirectionalLinearSearchArrayRounding(values, size, null);
                     break;
                 default:
                     throw new IllegalArgumentException("invalid type: " + type);

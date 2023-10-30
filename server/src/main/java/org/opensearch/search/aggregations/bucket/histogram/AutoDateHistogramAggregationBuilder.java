@@ -33,6 +33,7 @@
 package org.opensearch.search.aggregations.bucket.histogram;
 
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.time.DateTimeUnit;
 import org.opensearch.common.time.Rounding;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -83,14 +84,14 @@ public class AutoDateHistogramAggregationBuilder extends ValuesSourceAggregation
         PARSER.declareStringOrNull(AutoDateHistogramAggregationBuilder::setMinimumIntervalExpression, MINIMUM_INTERVAL_FIELD);
     }
 
-    public static final Map<Rounding.DateTimeUnit, String> ALLOWED_INTERVALS = new HashMap<>();
+    public static final Map<DateTimeUnit, String> ALLOWED_INTERVALS = new HashMap<>();
     static {
-        ALLOWED_INTERVALS.put(Rounding.DateTimeUnit.YEAR_OF_CENTURY, "year");
-        ALLOWED_INTERVALS.put(Rounding.DateTimeUnit.MONTH_OF_YEAR, "month");
-        ALLOWED_INTERVALS.put(Rounding.DateTimeUnit.DAY_OF_MONTH, "day");
-        ALLOWED_INTERVALS.put(Rounding.DateTimeUnit.HOUR_OF_DAY, "hour");
-        ALLOWED_INTERVALS.put(Rounding.DateTimeUnit.MINUTES_OF_HOUR, "minute");
-        ALLOWED_INTERVALS.put(Rounding.DateTimeUnit.SECOND_OF_MINUTE, "second");
+        ALLOWED_INTERVALS.put(DateTimeUnit.YEAR_OF_CENTURY, "year");
+        ALLOWED_INTERVALS.put(DateTimeUnit.MONTH_OF_YEAR, "month");
+        ALLOWED_INTERVALS.put(DateTimeUnit.DAY_OF_MONTH, "day");
+        ALLOWED_INTERVALS.put(DateTimeUnit.HOUR_OF_DAY, "hour");
+        ALLOWED_INTERVALS.put(DateTimeUnit.MINUTES_OF_HOUR, "minute");
+        ALLOWED_INTERVALS.put(DateTimeUnit.SECOND_OF_MINUTE, "second");
     }
 
     public static void registerAggregators(ValuesSourceRegistry.Builder builder) {
@@ -108,23 +109,12 @@ public class AutoDateHistogramAggregationBuilder extends ValuesSourceAggregation
         int indexToSliceFrom = 0;
 
         RoundingInfo[] roundings = new RoundingInfo[6];
-        roundings[0] = new RoundingInfo(Rounding.DateTimeUnit.SECOND_OF_MINUTE, timeZone, 1000L, "s", 1, 5, 10, 30);
-        roundings[1] = new RoundingInfo(Rounding.DateTimeUnit.MINUTES_OF_HOUR, timeZone, 60 * 1000L, "m", 1, 5, 10, 30);
-        roundings[2] = new RoundingInfo(Rounding.DateTimeUnit.HOUR_OF_DAY, timeZone, 60 * 60 * 1000L, "h", 1, 3, 12);
-        roundings[3] = new RoundingInfo(Rounding.DateTimeUnit.DAY_OF_MONTH, timeZone, 24 * 60 * 60 * 1000L, "d", 1, 7);
-        roundings[4] = new RoundingInfo(Rounding.DateTimeUnit.MONTH_OF_YEAR, timeZone, 30 * 24 * 60 * 60 * 1000L, "M", 1, 3);
-        roundings[5] = new RoundingInfo(
-            Rounding.DateTimeUnit.YEAR_OF_CENTURY,
-            timeZone,
-            365 * 24 * 60 * 60 * 1000L,
-            "y",
-            1,
-            5,
-            10,
-            20,
-            50,
-            100
-        );
+        roundings[0] = new RoundingInfo(DateTimeUnit.SECOND_OF_MINUTE, timeZone, 1000L, "s", 1, 5, 10, 30);
+        roundings[1] = new RoundingInfo(DateTimeUnit.MINUTES_OF_HOUR, timeZone, 60 * 1000L, "m", 1, 5, 10, 30);
+        roundings[2] = new RoundingInfo(DateTimeUnit.HOUR_OF_DAY, timeZone, 60 * 60 * 1000L, "h", 1, 3, 12);
+        roundings[3] = new RoundingInfo(DateTimeUnit.DAY_OF_MONTH, timeZone, 24 * 60 * 60 * 1000L, "d", 1, 7);
+        roundings[4] = new RoundingInfo(DateTimeUnit.MONTH_OF_YEAR, timeZone, 30 * 24 * 60 * 60 * 1000L, "M", 1, 3);
+        roundings[5] = new RoundingInfo(DateTimeUnit.YEAR_OF_CENTURY, timeZone, 365 * 24 * 60 * 60 * 1000L, "y", 1, 5, 10, 20, 50, 100);
 
         for (int i = 0; i < roundings.length; i++) {
             RoundingInfo roundingInfo = roundings[i];
@@ -251,7 +241,7 @@ public class AutoDateHistogramAggregationBuilder extends ValuesSourceAggregation
         );
     }
 
-    static Rounding createRounding(Rounding.DateTimeUnit interval, ZoneId timeZone) {
+    static Rounding createRounding(DateTimeUnit interval, ZoneId timeZone) {
         Rounding.Builder tzRoundingBuilder = Rounding.builder(interval);
         if (timeZone != null) {
             tzRoundingBuilder.timeZone(timeZone);
@@ -294,7 +284,7 @@ public class AutoDateHistogramAggregationBuilder extends ValuesSourceAggregation
         final String dateTimeUnit;
 
         public RoundingInfo(
-            Rounding.DateTimeUnit dateTimeUnit,
+            DateTimeUnit dateTimeUnit,
             ZoneId timeZone,
             long roughEstimateDurationMillis,
             String unitAbbreviation,

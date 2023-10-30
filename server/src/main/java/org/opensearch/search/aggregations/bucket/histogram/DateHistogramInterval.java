@@ -32,7 +32,7 @@
 
 package org.opensearch.search.aggregations.bucket.histogram;
 
-import org.opensearch.common.time.Rounding;
+import org.opensearch.common.time.DateTimeUnit;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -135,7 +135,7 @@ public class DateHistogramInterval implements Writeable, ToXContentFragment {
      */
     public long estimateMillis() {
         if (Strings.isNullOrEmpty(expression) == false && DateHistogramAggregationBuilder.DATE_FIELD_UNITS.containsKey(expression)) {
-            Rounding.DateTimeUnit intervalUnit = DateHistogramAggregationBuilder.DATE_FIELD_UNITS.get(expression);
+            DateTimeUnit intervalUnit = DateHistogramAggregationBuilder.DATE_FIELD_UNITS.get(expression);
             return intervalUnit.getField().getBaseUnit().getDuration().getSeconds() * 1000;
         } else {
             return TimeValue.parseTimeValue(expression, "DateHistogramInterval#estimateMillis").getMillis();

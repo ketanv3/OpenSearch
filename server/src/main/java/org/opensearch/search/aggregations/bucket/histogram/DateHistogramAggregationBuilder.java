@@ -32,6 +32,7 @@
 
 package org.opensearch.search.aggregations.bucket.histogram;
 
+import org.opensearch.common.time.DateTimeUnit;
 import org.opensearch.common.time.Rounding;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -75,26 +76,26 @@ public class DateHistogramAggregationBuilder extends ValuesSourceAggregationBuil
     public static final ValuesSourceRegistry.RegistryKey<DateHistogramAggregationSupplier> REGISTRY_KEY =
         new ValuesSourceRegistry.RegistryKey<>(NAME, DateHistogramAggregationSupplier.class);
 
-    public static final Map<String, Rounding.DateTimeUnit> DATE_FIELD_UNITS;
+    public static final Map<String, DateTimeUnit> DATE_FIELD_UNITS;
 
     static {
-        Map<String, Rounding.DateTimeUnit> dateFieldUnits = new HashMap<>();
-        dateFieldUnits.put("year", Rounding.DateTimeUnit.YEAR_OF_CENTURY);
-        dateFieldUnits.put("1y", Rounding.DateTimeUnit.YEAR_OF_CENTURY);
-        dateFieldUnits.put("quarter", Rounding.DateTimeUnit.QUARTER_OF_YEAR);
-        dateFieldUnits.put("1q", Rounding.DateTimeUnit.QUARTER_OF_YEAR);
-        dateFieldUnits.put("month", Rounding.DateTimeUnit.MONTH_OF_YEAR);
-        dateFieldUnits.put("1M", Rounding.DateTimeUnit.MONTH_OF_YEAR);
-        dateFieldUnits.put("week", Rounding.DateTimeUnit.WEEK_OF_WEEKYEAR);
-        dateFieldUnits.put("1w", Rounding.DateTimeUnit.WEEK_OF_WEEKYEAR);
-        dateFieldUnits.put("day", Rounding.DateTimeUnit.DAY_OF_MONTH);
-        dateFieldUnits.put("1d", Rounding.DateTimeUnit.DAY_OF_MONTH);
-        dateFieldUnits.put("hour", Rounding.DateTimeUnit.HOUR_OF_DAY);
-        dateFieldUnits.put("1h", Rounding.DateTimeUnit.HOUR_OF_DAY);
-        dateFieldUnits.put("minute", Rounding.DateTimeUnit.MINUTES_OF_HOUR);
-        dateFieldUnits.put("1m", Rounding.DateTimeUnit.MINUTES_OF_HOUR);
-        dateFieldUnits.put("second", Rounding.DateTimeUnit.SECOND_OF_MINUTE);
-        dateFieldUnits.put("1s", Rounding.DateTimeUnit.SECOND_OF_MINUTE);
+        Map<String, DateTimeUnit> dateFieldUnits = new HashMap<>();
+        dateFieldUnits.put("year", DateTimeUnit.YEAR_OF_CENTURY);
+        dateFieldUnits.put("1y", DateTimeUnit.YEAR_OF_CENTURY);
+        dateFieldUnits.put("quarter", DateTimeUnit.QUARTER_OF_YEAR);
+        dateFieldUnits.put("1q", DateTimeUnit.QUARTER_OF_YEAR);
+        dateFieldUnits.put("month", DateTimeUnit.MONTH_OF_YEAR);
+        dateFieldUnits.put("1M", DateTimeUnit.MONTH_OF_YEAR);
+        dateFieldUnits.put("week", DateTimeUnit.WEEK_OF_WEEKYEAR);
+        dateFieldUnits.put("1w", DateTimeUnit.WEEK_OF_WEEKYEAR);
+        dateFieldUnits.put("day", DateTimeUnit.DAY_OF_MONTH);
+        dateFieldUnits.put("1d", DateTimeUnit.DAY_OF_MONTH);
+        dateFieldUnits.put("hour", DateTimeUnit.HOUR_OF_DAY);
+        dateFieldUnits.put("1h", DateTimeUnit.HOUR_OF_DAY);
+        dateFieldUnits.put("minute", DateTimeUnit.MINUTES_OF_HOUR);
+        dateFieldUnits.put("1m", DateTimeUnit.MINUTES_OF_HOUR);
+        dateFieldUnits.put("second", DateTimeUnit.SECOND_OF_MINUTE);
+        dateFieldUnits.put("1s", DateTimeUnit.SECOND_OF_MINUTE);
         DATE_FIELD_UNITS = unmodifiableMap(dateFieldUnits);
     }
 

@@ -33,6 +33,7 @@
 package org.opensearch.search.aggregations.bucket.histogram;
 
 import org.opensearch.common.time.DateFormatter;
+import org.opensearch.common.time.DateTimeUnit;
 import org.opensearch.common.time.Rounding;
 import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.search.DocValueFormat;
@@ -114,9 +115,9 @@ public class InternalAutoDateHistogramTests extends InternalMultiBucketAggregati
         // Since we pass 0 as the starting index to getAppropriateRounding, we'll also use
         // an innerInterval that is quite large, such that targetBuckets * roundings[i].getMaximumInnerInterval()
         // will be larger than the estimate.
-        roundings[0] = new RoundingInfo(Rounding.DateTimeUnit.SECOND_OF_MINUTE, timeZone, 1000L, "s", 1000);
-        roundings[1] = new RoundingInfo(Rounding.DateTimeUnit.MINUTES_OF_HOUR, timeZone, 60 * 1000L, "m", 1, 5, 10, 30);
-        roundings[2] = new RoundingInfo(Rounding.DateTimeUnit.HOUR_OF_DAY, timeZone, 60 * 60 * 1000L, "h", 1, 3, 12);
+        roundings[0] = new RoundingInfo(DateTimeUnit.SECOND_OF_MINUTE, timeZone, 1000L, "s", 1000);
+        roundings[1] = new RoundingInfo(DateTimeUnit.MINUTES_OF_HOUR, timeZone, 60 * 1000L, "m", 1, 5, 10, 30);
+        roundings[2] = new RoundingInfo(DateTimeUnit.HOUR_OF_DAY, timeZone, 60 * 60 * 1000L, "h", 1, 3, 12);
 
         OffsetDateTime timestamp = Instant.parse("2018-01-01T00:00:01.000Z").atOffset(ZoneOffset.UTC);
         // We want to pass a roundingIdx of zero, because in order to reproduce this bug, we need the function

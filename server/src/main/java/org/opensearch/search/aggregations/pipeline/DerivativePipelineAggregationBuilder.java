@@ -32,7 +32,7 @@
 
 package org.opensearch.search.aggregations.pipeline;
 
-import org.opensearch.common.time.Rounding;
+import org.opensearch.common.time.DateTimeUnit;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.common.ParsingException;
@@ -152,7 +152,7 @@ public class DerivativePipelineAggregationBuilder extends AbstractPipelineAggreg
         }
         Long xAxisUnits = null;
         if (units != null) {
-            Rounding.DateTimeUnit dateTimeUnit = DateHistogramAggregationBuilder.DATE_FIELD_UNITS.get(units);
+            DateTimeUnit dateTimeUnit = DateHistogramAggregationBuilder.DATE_FIELD_UNITS.get(units);
             if (dateTimeUnit != null) {
                 xAxisUnits = dateTimeUnit.getField().getBaseUnit().getDuration().toMillis();
             } else {

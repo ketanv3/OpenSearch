@@ -32,7 +32,7 @@
 
 package org.opensearch.search.aggregations.bucket.histogram;
 
-import org.opensearch.common.time.Rounding;
+import org.opensearch.common.time.DateTimeUnit;
 
 /**
  * An aggregator capable of reporting bucket sizes in milliseconds. Used by RateAggregator for calendar-based buckets.
@@ -40,5 +40,5 @@ import org.opensearch.common.time.Rounding;
  * @opensearch.internal
  */
 public interface SizedBucketAggregator {
-    double bucketSize(long bucket, Rounding.DateTimeUnit unit);
+    double bucketSize(long bucket, DateTimeUnit unit);
 }

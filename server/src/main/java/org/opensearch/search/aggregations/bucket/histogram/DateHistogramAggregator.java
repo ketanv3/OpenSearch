@@ -37,6 +37,7 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.util.CollectionUtil;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.lease.Releasables;
+import org.opensearch.common.time.DateTimeUnit;
 import org.opensearch.common.time.Rounding;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.Aggregator;
@@ -219,7 +220,7 @@ class DateHistogramAggregator extends BucketsAggregator implements SizedBucketAg
      * @return the size of the bucket in specified units, or 1.0 if unitSize is null
      */
     @Override
-    public double bucketSize(long bucket, Rounding.DateTimeUnit unitSize) {
+    public double bucketSize(long bucket, DateTimeUnit unitSize) {
         if (unitSize != null) {
             return preparedRounding.roundingSize(bucketOrds.get(bucket), unitSize);
         } else {
