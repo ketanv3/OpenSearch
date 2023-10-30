@@ -33,7 +33,7 @@
 package org.opensearch.search.aggregations.bucket.composite;
 
 import org.apache.lucene.index.IndexReader;
-import org.opensearch.common.Rounding;
+import org.opensearch.common.time.Rounding;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.core.ParseField;

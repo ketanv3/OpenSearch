@@ -32,8 +32,8 @@
 
 package org.opensearch.search.aggregations.bucket.histogram;
 
-import org.opensearch.common.Rounding;
 import org.opensearch.common.time.DateFormatter;
+import org.opensearch.common.time.Rounding;
 import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.InternalAggregation;

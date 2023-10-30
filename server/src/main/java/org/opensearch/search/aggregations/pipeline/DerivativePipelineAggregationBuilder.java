@@ -32,7 +32,7 @@
 
 package org.opensearch.search.aggregations.pipeline;
 
-import org.opensearch.common.Rounding;
+import org.opensearch.common.time.Rounding;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.common.ParsingException;

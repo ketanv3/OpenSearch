@@ -6,7 +6,7 @@
  * compatible open source license.
  */
 
-package org.opensearch.common;
+package org.opensearch.common.time;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;

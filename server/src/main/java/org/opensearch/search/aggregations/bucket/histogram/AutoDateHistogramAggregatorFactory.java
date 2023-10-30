@@ -32,7 +32,7 @@
 
 package org.opensearch.search.aggregations.bucket.histogram;
 
-import org.opensearch.common.Rounding;
+import org.opensearch.common.time.Rounding;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.AggregatorFactories;

@@ -30,9 +30,9 @@
  * GitHub history for details.
  */
 
-package org.opensearch.common;
+package org.opensearch.common.time;
 
-import org.opensearch.common.Rounding.DateTimeUnit;
+import org.opensearch.common.time.Rounding.DateTimeUnit;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.Writeable.Reader;
 import org.opensearch.test.AbstractWireSerializingTestCase;

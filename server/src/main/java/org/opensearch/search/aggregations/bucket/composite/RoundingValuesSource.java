@@ -34,7 +34,7 @@ package org.opensearch.search.aggregations.bucket.composite;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SortedNumericDocValues;
-import org.opensearch.common.Rounding;
+import org.opensearch.common.time.Rounding;
 import org.opensearch.index.fielddata.SortedBinaryDocValues;
 import org.opensearch.index.fielddata.SortedNumericDoubleValues;
 import org.opensearch.search.aggregations.support.ValuesSource;

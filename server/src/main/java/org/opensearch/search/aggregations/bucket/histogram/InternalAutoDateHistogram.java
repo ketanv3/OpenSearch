@@ -32,7 +32,7 @@
 package org.opensearch.search.aggregations.bucket.histogram;
 
 import org.apache.lucene.util.PriorityQueue;
-import org.opensearch.common.Rounding;
+import org.opensearch.common.time.Rounding;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;

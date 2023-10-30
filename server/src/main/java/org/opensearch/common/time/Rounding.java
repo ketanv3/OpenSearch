@@ -29,16 +29,16 @@
  * GitHub history for details.
  */
 
-package org.opensearch.common;
+package org.opensearch.common.time;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.ArrayUtil;
 import org.opensearch.OpenSearchException;
+import org.opensearch.common.LocalTimeOffset;
 import org.opensearch.common.LocalTimeOffset.Gap;
 import org.opensearch.common.LocalTimeOffset.Overlap;
 import org.opensearch.common.annotation.InternalApi;
-import org.opensearch.common.time.DateUtils;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
