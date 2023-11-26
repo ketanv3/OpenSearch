@@ -18,6 +18,53 @@ public class Numbers {
         return parse(bytesRef.bytes, bytesRef.offset, bytesRef.length, LONG_PARSER);
     }
 
+    public static long parseLongInlined(BytesRef bytesRef) {
+        long result = 0;
+        long limit = -Long.MAX_VALUE;
+        long multmin = limit / 10;
+        boolean isNegative = false;
+
+        int offset = bytesRef.offset;
+        final byte[] utf8 = bytesRef.bytes;
+        final int offsetLimit = bytesRef.offset + bytesRef.length;
+
+        int b = utf8[offset++] & 0xFF;
+        assert b < 0x80;
+        char ch = (char) b;
+
+        if (ch < '0') {
+            if (ch == '-') {
+                isNegative = true;
+                limit = Long.MIN_VALUE;
+                multmin = limit / 10;
+            } else if (ch != '+') {
+                throw new NumberFormatException();
+            }
+        } else {
+            result = -Character.digit(ch, 10);
+        }
+
+        while (offset < offsetLimit) {
+            b = utf8[offset++] & 0xFF;
+            assert b < 0x80;
+            ch = (char) b;
+
+            int digit = Character.digit(ch, 10);
+            if (digit < 0 || result < multmin) {
+                throw new NumberFormatException();
+            }
+
+            result *= 10;
+            if (result < limit + digit) {
+                throw new NumberFormatException();
+            }
+
+            result -= digit;
+        }
+
+        return isNegative ? result : -result;
+    }
+
     private static <T extends Number> T parse(byte[] utf8, int offset, int length, Parser<T> parser) {
         final int limit = offset + length;
         State state = parser.init();
