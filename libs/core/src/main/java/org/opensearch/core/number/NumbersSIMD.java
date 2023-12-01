@@ -42,7 +42,7 @@ public class NumbersSIMD {
             case 19:
             case 18:
             case 17:
-                // Read 8 digits
+                // Read 8 digits.
                 chunk = parse(read8(utf8, offset));
                 result = chunk;
                 offset += 8;
@@ -55,7 +55,7 @@ public class NumbersSIMD {
             case 11:
             case 10:
             case 9:
-                // Read 8 digits
+                // Read 8 digits.
                 chunk = parse(read8(utf8, offset));
                 result = POWERS[8] * result + chunk;
                 offset += 8;
@@ -68,10 +68,16 @@ public class NumbersSIMD {
             case 3:
             case 2:
             case 1:
-                // Read between 1-8 digits (inclusive)
+                // Read between 1-8 digits (inclusive).
                 chunk = parse(readTail(utf8, offset, length));
                 result = POWERS[length] * result + chunk;
-                return isNegative ? -result : result;
+                result = isNegative ? -result : result;
+
+                // If the result doesn't have the expected sign, it must have under or overflown.
+                if ((result < 0) ^ isNegative) {
+                    throw new NumberFormatException();
+                }
+                return result;
             case 0:
             default:
                 throw new NumberFormatException();
