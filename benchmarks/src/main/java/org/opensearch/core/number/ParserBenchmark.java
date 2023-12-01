@@ -47,7 +47,7 @@ public class ParserBenchmark {
     @OperationsPerInvocation(COUNT)
     public void candidate(Blackhole bh) {
         for (BytesRef value : WORKLOAD) {
-            bh.consume(Numbers.parseLongInlined(value));
+            bh.consume(NumbersSIMD.parseLong(value.bytes, value.offset, value.length));
         }
     }
 }
